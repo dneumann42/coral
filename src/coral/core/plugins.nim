@@ -23,13 +23,35 @@ type
   Plugins* = object
     plugins: Table[string, Plugin]
 
+func init*(T: type Plugins): T =
+  T(plugins: initTable[string, Plugin]())
+
+type PluginAdd = ref object
+  id: string
+  ps: var Plugins
+
+proc plugin*(ps: var Plugins, id: string): PluginAdd {.discardable.} =
+  PluginAdd(id: id, ps: ps)
+
+template load*(p: PluginAdd, fn: untyped): PluginAdd =
+  p.ps.add(p.id, load, fn)
+  p
+
+template update*(p: PluginAdd, fn: untyped): PluginAdd =
+  p.ps.add(p.id, update, fn)
+  p
+
+template draw*(p: PluginAdd, fn: untyped): PluginAdd =
+  p.ps.add(p.id, draw, fn)
+  p
+
+template done*(pa: PluginAdd): var Plugins =
+  pa.ps
+
 func asFun(f: Fn | FnVE | FnE): Function =
   when f is Fn: Fun(f)
   elif f is FnVE: FunVE(f)
   elif f is FnE: FunE(f)
-
-func init*(T: type Plugins): T =
-  T(plugins: initTable[string, Plugin]())
 
 proc call*(fn: Function, e: var Events) =
   match fn:
@@ -57,3 +79,4 @@ template impl() =
 
 proc add*(ps: var Plugins, id: string, stage: PluginStage, f: Fn) = impl()
 proc add*(ps: var Plugins, id: string, stage: PluginStage, f: FnVE) = impl()
+proc add*(ps: var Plugins, id: string, stage: PluginStage, f: FnE) = impl()

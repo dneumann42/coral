@@ -26,7 +26,7 @@ proc update(game: var Game) =
 
 proc draw(game: var Game) =
   withDrawing:
-    discard
+    game.plugins.draw(game.events)
 
 proc start*(game: var Game) =
   game.load()
