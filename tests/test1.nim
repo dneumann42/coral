@@ -8,5 +8,8 @@
 import unittest
 
 import coral
+import coral/core/game
+
 test "can add":
-  check add(5, 5) == 10
+  var game = Game.init()
+  game.start()

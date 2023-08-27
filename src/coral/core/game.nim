@@ -1,5 +1,7 @@
+import platform
+
 type
-  Game = object
+  Game* = object
     shouldExit: bool
     title: string
 
@@ -11,13 +13,15 @@ func init*(T: type Game; title = ""): T =
   T(title: title)
 
 proc load(game: var Game) =
-  discard
+  initializeWindow(title = game.title)
 
 proc update(game: var Game) =
+  game.shouldExit = windowShouldClose()
   discard
 
 proc draw(game: var Game) =
-  discard
+  withDrawing:
+    discard
 
 func start*(game: var Game) =
   game.load()
