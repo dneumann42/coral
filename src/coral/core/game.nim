@@ -1,11 +1,14 @@
-import platform, events, plugins
+import platform, events, plugins, scenes, options
 
 type
   Game* = object
     shouldExit: bool
+    startingScene: string
+
     title: string
-    plugins: Plugins
     events: Events
+    plugins: Plugins
+    scenes: Scenes
 
 proc `=sink`(x: var Game; y: Game) {.error.}
 proc `=copy`(x: var Game; y: Game) {.error.}
@@ -14,14 +17,24 @@ proc `=wasMoved`(x: var Game) {.error.}
 func plugins*(game: var Game): var Plugins =
   game.plugins
 
-func init*(T: type Game; title = ""): T =
-  T(title: title, events: Events.init())
+func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
+  T(
+    startingScene: startingScene.get(""),
+    title: title,
+    events: Events.init(),
+    scenes: Scenes.init()
+  )
 
 proc load(game: var Game) =
   initializeWindow(title = game.title)
+  game.scenes.change(Go game.startingScene)
 
 proc update(game: var Game) =
   game.shouldExit = windowShouldClose()
+
+  for loadId in game.scenes.shouldLoad():
+    game.plugins.load(loadId, game.events)
+
   game.plugins.update(game.events)
 
 proc draw(game: var Game) =
