@@ -1,4 +1,4 @@
-import events, plugins, scenes, options, resources, commands, patty
+import events, plugins, scenes, options, resources, commands, patty, states
 import ../artist/artist
 
 from platform import initializeWindow, windowShouldClose
@@ -10,6 +10,7 @@ type
 
     title: string
 
+    state: GameState
     events: Events
     plugins: Plugins
     scenes: Scenes
@@ -26,9 +27,13 @@ func plugins*(game: var Game): var Plugins =
 func resources*(game: var Game): var Resources =
   game.resources
 
+func state*(game: var Game): var GameState =
+  game.state
+
 func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
   T(startingScene: startingScene.get(""),
     title: title,
+    state: GameState.init(),
     events: Events.init(),
     scenes: Scenes.init(),
     resources: Resources.init())
@@ -55,17 +60,17 @@ proc update(game: var Game) =
 
   game.withCommands do (game: var Game; cmd: var Commands):
     for loadId in game.scenes.shouldLoad():
-      game.plugins.load(loadId, game.events, game.artist, game.resources, cmd)
+      game.plugins.load(loadId, game.events, game.artist, game.resources, cmd, game.state)
 
   game.withCommands do (game: var Game; cmd: var Commands):
     game.plugins.update(game.scenes.activeScene(), game.events, game.artist,
-        game.resources, cmd)
+        game.resources, cmd, game.state)
 
 proc draw(game: var Game) =
   artist.withDrawing:
     game.withCommands do (game: var Game; cmd: var Commands):
       game.plugins.draw(game.scenes.activeScene(), game.events, game.artist,
-          game.resources, cmd)
+          game.resources, cmd, game.state)
       game.artist.paint()
 
 proc start*(game: var Game) =

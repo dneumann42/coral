@@ -1,4 +1,4 @@
-import sugar, events, tables, patty, resources, options, commands
+import sugar, events, tables, patty, resources, options, commands, states
 import ../artist/artist
 
 type Fn = () -> void
@@ -9,11 +9,13 @@ type FnR = (Resources) -> void
 type FnVR = (var Resources) -> void
 
 type FnC = (var Commands) -> void
+type FnS = (var GameState) -> void
+type FnCS = (var Commands, var GameState) -> void
 
 type FnAR = (Artist, Resources) -> void
 type FnVAR = (var Artist, var Resources) -> void
 
-type SomeFunc = Fn | FnVE | FnE | FnR | FnAR | FnVAR | FnC
+type SomeFunc = Fn | FnVE | FnE | FnR | FnAR | FnVAR | FnC | FnS | FnCS
 
 variant Function:
   Fun(f: Fn)
@@ -23,6 +25,8 @@ variant Function:
   FunAR(far: FnAR)
   FunVAR(fvar: FnVAR)
   FunC(fc: FnC)
+  FunS(fs: FnS)
+  FunCS(fcs: FnCS)
 
 type
   PluginStage* = enum
@@ -54,9 +58,11 @@ func asFun(f: SomeFunc): Function =
   elif f is FnAR: FunAR(f)
   elif f is FnVAR: FunVAR(f)
   elif f is FnC: FunC(f)
+  elif f is FnS: FunS(f)
+  elif f is FnCS: FunCS(f)
 
 proc call*(fn: Function, e: var Events, a: var Artist, r: var Resources,
-    c: var Commands) =
+    c: var Commands, s: var GameState) =
   match fn:
     Fun(f): f()
     FunVE(f): f(e)
@@ -65,32 +71,35 @@ proc call*(fn: Function, e: var Events, a: var Artist, r: var Resources,
     FunAR(f): f(a, r)
     FunVAR(f): f(a, r)
     FunC(f): f(c)
+    FunS(f): f(s)
+    FunCS(f): f(c, s)
 
 proc doStage*(self: var Plugins, stage: PluginStage, activeScene: Option[
-    string], e: var Events, a: var Artist, r: var Resources, c: var Commands) =
+    string], e: var Events, a: var Artist, r: var Resources, c: var Commands,
+        s: var GameState) =
   for id in self.plugins.keys:
     var plug = self.plugins[id]
     if plug.isScene and id != activeScene.get(""):
       continue
     for (stage, fn) in plug.fs:
       if stage == stage:
-        call(fn, e, a, r, c)
+        call(fn, e, a, r, c, s)
 
 proc load*(self: var Plugins, id: string, e: var Events, a: var Artist,
-    r: var Resources, c: var Commands) =
+    r: var Resources, c: var Commands, s: var GameState) =
   if not self.plugins.hasKey(id):
     return
   for (stage, fn) in self.plugins[id].fs:
     if stage == load:
-      call(fn, e, a, r, c)
+      call(fn, e, a, r, c, s)
 
 proc update*(self: var Plugins, activeScene: Option[string], e: var Events,
-    a: var Artist, r: var Resources, c: var Commands) =
-  self.doStage(update, activeScene, e, a, r, c)
+    a: var Artist, r: var Resources, c: var Commands, s: var GameState) =
+  self.doStage(update, activeScene, e, a, r, c, s)
 
 proc draw*(self: var Plugins, activeScene: Option[string], e: var Events,
-    a: var Artist, r: var Resources, c: var Commands) =
-  self.doStage(draw, activeScene, e, a, r, c)
+    a: var Artist, r: var Resources, c: var Commands, s: var GameState) =
+  self.doStage(draw, activeScene, e, a, r, c, s)
 
 template impl(f: untyped): var Plugins =
   discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[]))
@@ -111,6 +120,10 @@ proc add*(ps: var Plugins, id: string, stage: PluginStage,
     f: FnVAR): var Plugins {.discardable.} = impl(f)
 proc add*(ps: var Plugins, id: string, stage: PluginStage,
     f: FnC): var Plugins {.discardable.} = impl(f)
+proc add*(ps: var Plugins, id: string, stage: PluginStage,
+    f: FnS): var Plugins {.discardable.} = impl(f)
+proc add*(ps: var Plugins, id: string, stage: PluginStage,
+    f: FnCS): var Plugins {.discardable.} = impl(f)
 
 template plugin*(ps: var Plugins, id: string, lod: untyped, upd: untyped,
     drw: untyped): var Plugins =
