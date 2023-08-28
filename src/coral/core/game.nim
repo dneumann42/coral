@@ -1,4 +1,7 @@
-import platform, events, plugins, scenes, options
+import events, plugins, scenes, options
+import ../artist/artist
+
+from platform import initializeWindow, windowShouldClose
 
 type
   Game* = object
@@ -9,6 +12,7 @@ type
     events: Events
     plugins: Plugins
     scenes: Scenes
+    artist: Artist
 
 proc `=sink`(x: var Game; y: Game) {.error.}
 proc `=copy`(x: var Game; y: Game) {.error.}
@@ -18,12 +22,10 @@ func plugins*(game: var Game): var Plugins =
   game.plugins
 
 func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
-  T(
-    startingScene: startingScene.get(""),
+  T(startingScene: startingScene.get(""),
     title: title,
     events: Events.init(),
-    scenes: Scenes.init()
-  )
+    scenes: Scenes.init())
 
 proc load(game: var Game) =
   initializeWindow(title = game.title)
@@ -38,12 +40,13 @@ proc update(game: var Game) =
   game.plugins.update(game.events)
 
 proc draw(game: var Game) =
-  withDrawing:
+  artist.withDrawing:
     game.plugins.draw(game.events)
+    game.artist.paint()
+    rect(100.0, 100.0)
 
 proc start*(game: var Game) =
   game.load()
-
   while not game.shouldExit:
     game.update()
     game.draw()
