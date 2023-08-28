@@ -8,6 +8,16 @@ type
   Canvas* = PlatformCanvas
   Camera* = PlatformCamera
 
+  Align* = enum
+    left
+    center
+    right
+
+  Justify* = enum
+    top
+    center
+    bottom
+
   Layer* = ref object
     depth*: int
     camera*: bool
@@ -49,6 +59,15 @@ proc circle*(x, y: SomeNumber, r = 32.0, color = color(1.0, 1.0, 1.0, 1.0)) =
 proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
   drawRectangle(x, y, w, h, origin, rotation, color)
+
+proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
+    fontSize = 32.0, rotation = 0.0, color = color(1.0, 1.0, 1.0,
+    1.0), align: Align = left) =
+  let size = measureText(text, font, fontSize)
+  if align == left:
+    drawText(x, y, text, font, fontSize, rotation, color)
+  if align == center:
+    drawText(x - size.x / 2.0, y, text, font, fontSize, rotation, color)
 
 template layer*(artist: Artist, depth: int, body: untyped) =
   if artist.layers.findIt(it.depth == depth) >= 0:

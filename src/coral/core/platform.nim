@@ -8,6 +8,9 @@ type
   PlatformCanvas* = raylib.RenderTexture2D
   PlatformCamera* = raylib.Camera2D
 
+  PlatformFont* = raylib.Font
+  PlatformTexture* = raylib.Texture2D
+
   SomeIntRect = tuple[x, y, w, h: int]
   SomeFloatRect = tuple[x, y, w, h: float]
   SomeFloat32Rect = tuple[x, y, w, h: float32]
@@ -78,11 +81,23 @@ func initializeWindow*(title = "", width = WIN_SIZE.x,
   raylib.setTargetFPS(60)
   raylib.setExitKey(cast[raylib.KeyboardKey](0))
 
+proc loadTexture*(path: string): PlatformTexture =
+  raylib.loadTexture(path)
+
+proc loadFont*(path: string): PlatformFont {.inline.} =
+  # raylib.loadFont(path, 64, 512)
+  raylib.getFontDefault()
+
 template withDrawing*(body: untyped) =
   raylib.beginDrawing()
   raylib.clearBackground(raylib.Black)
   body
   raylib.endDrawing()
+
+proc measureText*(text: string, font: var PlatformFont, fontSize: float): Vec2 =
+  let res = raylib.measureText(raylib.getFontDefault(), text.cstring, fontSize.float32, 1.0'f32)
+  result.x = res.x
+  result.y = res.y
 
 proc drawRectangle*(x, y, w, h: SomeNumber, origin: Vec2,
     rotation: SomeNumber, color: Color) =
@@ -101,5 +116,16 @@ proc drawLine*(x1, y1, x2, y2: SomeNumber, thickness = 1.0, color: Color) =
     vec2(x1, y1),
     vec2(x2, y2),
     thickness.float32,
+    color
+  )
+
+proc drawText*(x, y: SomeNumber, text: string, font: PlatformFont,
+    fontSize: float, rotation: float, color: Color) =
+  raylib.drawText(
+    font,
+    text,
+    raylib.Vector2(x: x.float32, y: y.float32),
+    fontSize.float32,
+    0.0,
     color
   )
