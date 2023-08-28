@@ -43,7 +43,6 @@ proc draw(game: var Game) =
   artist.withDrawing:
     game.plugins.draw(game.events)
     game.artist.paint()
-    rect(100.0, 100.0)
 
 proc start*(game: var Game) =
   game.load()

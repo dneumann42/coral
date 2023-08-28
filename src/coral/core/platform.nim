@@ -23,14 +23,20 @@ converter toRectangle*(r: PlatformRectangle): raylib.Rectangle {.inline.} = rayl
     x: r.x.float32, y: r.y.float32, width: r.w.float32, height: r.h.float32)
 
 converter toPlatformRectangle*(r: SomeRectangle): PlatformRectangle =
-  PlatformRectangle(
-    x: r.x.float32,
-    y: r.y.float32,
-    w: r.w.float32,
-    h: r.h.float32
-  )
+  (x: r.x.float32, y: r.y.float32, w: r.w.float32, h: r.h.float32)
 
-# converter toColor*(r)
+converter toRayColor*(c: chroma.Color): raylib.Color =
+  let v = c.asRgba
+  result.r = v.r
+  result.g = v.g
+  result.b = v.b
+  result.a = v.a
+
+converter toChromaColor*(c: raylib.Color): chroma.Color =
+  result.r = (c.r * 255).float32
+  result.g = (c.g * 255).float32
+  result.b = (c.b * 255).float32
+  result.a = (c.a * 255).float32
 
 proc screenWidth*(): float = raylib.getScreenWidth().float
 proc screenHeight*(): float = raylib.getScreenHeight().float
@@ -51,6 +57,11 @@ proc size*(c: PlatformCanvas): auto =
 proc drawCanvas*(canvas: PlatformCanvas, src, dst: SomeRectangle) =
   raylib.drawTexture(canvas.texture, src, dst, vec2(), 0.0'f32, raylib.White)
 
+template withCanvas*(canvas: PlatformCanvas, body: untyped) =
+  raylib.beginTextureMode(canvas.texture)
+  body
+  raylib.endTextureMode()
+
 func windowShouldClose*(): bool =
   result = raylib.windowShouldClose()
 
@@ -62,10 +73,10 @@ func initializeWindow*(title = "", width = WIN_SIZE.x,
     height = WIN_SIZE.y) =
   assert not raylib.isWindowReady(), "Window is already initialized"
   raylib.setConfigFlags raylib.flags(raylib.WindowResizable,
-      raylib.WindowTopmost)
+      raylib.WindowTopmost, raylib.Msaa4xHint)
   raylib.initWindow(width.int32, height.int32, title)
   raylib.setTargetFPS(60)
-  # setExitKey(cast[KeyboardKey](0))
+  raylib.setExitKey(cast[raylib.KeyboardKey](0))
 
 template withDrawing*(body: untyped) =
   raylib.beginDrawing()
@@ -73,12 +84,22 @@ template withDrawing*(body: untyped) =
   body
   raylib.endDrawing()
 
-proc drawRectangle*(x, y, width, height: SomeNumber, origin: Vec2,
-    rotation: SomeNumber, color: chroma.Color) =
+proc drawRectangle*(x, y, w, h: SomeNumber, origin: Vec2,
+    rotation: SomeNumber, color: Color) =
   raylib.drawRectangle(
-    raylib.Rectangle(x: x.float32, y: y.float32, width: width.float32,
-        height: height.float32),
-    raylib.Vector2(),
-    0.0'f32,
-    raylib.White
+    (x: x, y: y, w: w, h: h).toRectangle(),
+    origin.toVector2(),
+    rotation.float32,
+    color.toRayColor()
+  )
+
+proc drawCircle*(x, y, r: SomeNumber, color: Color) =
+  raylib.drawCircle(vec2(x, y), r.float32, color.toRayColor)
+
+proc drawLine*(x1, y1, x2, y2: SomeNumber, thickness = 1.0, color: Color) =
+  raylib.drawLine(
+    vec2(x1, y1),
+    vec2(x2, y2),
+    thickness.float32,
+    color
   )

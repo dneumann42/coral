@@ -15,7 +15,10 @@ type
 
   Artist* = object
     camera: Camera
-    layers: seq[(int, Layer)]
+    layers: seq[Layer]
+
+proc tup*(v: Vec2): (float32, float32) = (v.x, v.y)
+proc tup*(v: Vec3): (float32, float32, float32) = (v.x, v.y, v.z)
 
 proc screenWidth*(): float = pl.screenWidth()
 proc screenHeight*(): float = pl.screenHeight()
@@ -36,17 +39,24 @@ template withDrawing*(body: untyped) =
 proc size*(layer: Layer): Vec2 =
   layer.target.size()
 
-proc line*() = discard
-proc circle*() = discard
+proc line*(x1, y1, x2, y2: SomeNumber, thickness = 1.0, color = color(1.0, 1.0,
+    1.0, 1.0)) =
+  drawLine(x1, y1, x2, y2, thickness, color)
 
-proc rect*(x, y: SomeNumber, w = 32.0, h = 32.0, origin = vec2(),
+proc circle*(x, y: SomeNumber, r = 32.0, color = color(1.0, 1.0, 1.0, 1.0)) =
+  drawCircle(x, y, r, color)
+
+proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
   drawRectangle(x, y, w, h, origin, rotation, color)
 
+template layer*(artist: Artist, depth: int, body: untyped) =
+  if artist.layers.findIt(it.depth == depth) >= 0:
+    artist.layers.add((depth, Layer.init(depth = depth)))
+
 proc paint*(artist: var Artist) =
-  for (_, layer) in artist.layers.sorted((a, b) => a[0].cmp(b[0])):
-    let size = layer.size()
-    let (w, h) = (size.x, size.y)
+  for layer in artist.layers.sorted((a, b) => a.depth.cmp(b.depth)):
+    let (w, h) = layer.size().tup
     let src = (0.0'f32, 0.0'f32, w, -h)
     let dst = (screenWidth().float32 / 2.0'f32 - w / 2.0'f32, screenHeight(
       ).float32 / 2.0'f32 + h / 2.0'f32, w, -h)
