@@ -1,4 +1,4 @@
-import events, plugins, scenes, options, resources
+import events, plugins, scenes, options, resources, commands
 import ../artist/artist
 
 from platform import initializeWindow, windowShouldClose
@@ -32,6 +32,10 @@ func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
     events: Events.init(),
     scenes: Scenes.init(),
     resources: Resources.init())
+
+proc commandDispatch*(game: var Game, commands: Commands) =
+  for cmd in commands:
+    discard
 
 proc load(game: var Game) =
   initializeWindow(title = game.title)

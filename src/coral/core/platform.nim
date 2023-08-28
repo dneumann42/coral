@@ -4,9 +4,12 @@ from raylib import nil
 const WIN_SIZE = vec2(1280, 720)
 
 type
-  PlatformRectangle* = tuple[x, y, w, h: float32]
-  PlatformCanvas* = raylib.RenderTexture2D
-  PlatformCamera* = raylib.Camera2D
+  Rectangle* = tuple[x, y, w, h: float32]
+  Canvas* = raylib.RenderTexture2D
+  Camera* = raylib.Camera2D
+  KeyboardKey* = raylib.KeyboardKey
+  GamepadButton* = raylib.GamepadButton
+  MouseButton* = raylib.MouseButton
 
   PlatformFont* = raylib.Font
   PlatformTexture* = raylib.Texture2D
@@ -22,10 +25,10 @@ converter fromVector2*(v: raylib.Vector2): Vec2 {.inline.} = vec2(v.x, v.y)
 converter toVector3*(v: Vec3): raylib.Vector3 {.inline.} = raylib.Vector3(
     x: v.x, y: v.y, z: v.z)
 converter fromVector3*(v: raylib.Vector3): Vec3 {.inline.} = vec3(v.x, v.y, v.z)
-converter toRectangle*(r: PlatformRectangle): raylib.Rectangle {.inline.} = raylib.Rectangle(
+converter toRectangle*(r: Rectangle): raylib.Rectangle {.inline.} = raylib.Rectangle(
     x: r.x.float32, y: r.y.float32, width: r.w.float32, height: r.h.float32)
 
-converter toPlatformRectangle*(r: SomeRectangle): PlatformRectangle =
+converter toPlatformRectangle*(r: SomeRectangle): Rectangle =
   (x: r.x.float32, y: r.y.float32, w: r.w.float32, h: r.h.float32)
 
 converter toRayColor*(c: chroma.Color): raylib.Color =
@@ -46,21 +49,21 @@ proc screenHeight*(): float = raylib.getScreenHeight().float
 proc screenSize*(): (float, float) =
   (screenWidth(), screenHeight())
 
-proc init*(T: type PlatformCanvas, w, h: SomeNumber): T =
+proc init*(T: type Canvas, w, h: SomeNumber): T =
   raylib.loadRenderTexture(w.int32, h.int32)
 
-proc init*(T: type PlatformCamera): T =
+proc init*(T: type Camera): T =
   raylib.Camera2D(target: vec2(), offset: screenSize() / 2.0).T
 
-proc width*(c: PlatformCanvas): int = c.texture.width
-proc height*(c: PlatformCanvas): int = c.texture.height
-proc size*(c: PlatformCanvas): auto =
+proc width*(c: Canvas): int = c.texture.width
+proc height*(c: Canvas): int = c.texture.height
+proc size*(c: Canvas): auto =
   vec2(c.width().float, c.height().float)
 
-proc drawCanvas*(canvas: PlatformCanvas, src, dst: SomeRectangle) =
+proc drawCanvas*(canvas: Canvas, src, dst: SomeRectangle) =
   raylib.drawTexture(canvas.texture, src, dst, vec2(), 0.0'f32, raylib.White)
 
-template withCanvas*(canvas: PlatformCanvas, body: untyped) =
+template withCanvas*(canvas: Canvas, body: untyped) =
   raylib.beginTextureMode(canvas.texture)
   body
   raylib.endTextureMode()
@@ -81,6 +84,18 @@ func initializeWindow*(title = "", width = WIN_SIZE.x,
   raylib.setTargetFPS(60)
   raylib.setExitKey(cast[raylib.KeyboardKey](0))
 
+proc isKeyPressed*(key: KeyboardKey): bool =
+  raylib.isKeyPressed(key)
+
+proc isKeyDown*(key: KeyboardKey): bool =
+  raylib.isKeyDown(key)
+
+proc isKeyReleased*(key: KeyboardKey): bool =
+  raylib.isKeyReleased(key)
+
+proc isKeyUp*(key: KeyboardKey): bool =
+  raylib.isKeyUp(key)
+
 proc loadTexture*(path: string): PlatformTexture =
   raylib.loadTexture(path)
 
@@ -95,7 +110,8 @@ template withDrawing*(body: untyped) =
   raylib.endDrawing()
 
 proc measureText*(text: string, font: var PlatformFont, fontSize: float): Vec2 =
-  let res = raylib.measureText(raylib.getFontDefault(), text.cstring, fontSize.float32, 1.0'f32)
+  let res = raylib.measureText(raylib.getFontDefault(), text.cstring,
+      fontSize.float32, 1.0'f32)
   result.x = res.x
   result.y = res.y
 

@@ -3,10 +3,10 @@ import algorithm, sequtils, sugar, vmath, chroma
 import ../core/platform as pl
 
 type
-  Rect* = PlatformRectangle
+  Rect* = Rectangle
 
-  Canvas* = PlatformCanvas
-  Camera* = PlatformCamera
+  Canvas* = pl.Canvas
+  Camera* = pl.Camera
 
   Align* = enum
     left
