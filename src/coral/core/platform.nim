@@ -1,5 +1,5 @@
 import vmath, chroma
-from raylib import nil
+import raylib except Color
 
 const WIN_SIZE = vec2(1280, 720)
 
@@ -96,8 +96,9 @@ proc isKeyReleased*(key: KeyboardKey): bool =
 proc isKeyUp*(key: KeyboardKey): bool =
   raylib.isKeyUp(key)
 
-proc loadTexture*(path: string): PlatformTexture =
-  raylib.loadTexture(path)
+proc loadTexture*(path: string): PlatformTexture {.inline.} =
+  var img = raylib.loadImage(path)
+  result = raylib.loadTextureFromImage(img)
 
 proc loadFont*(path: string): PlatformFont {.inline.} =
   # raylib.loadFont(path, 64, 512)
@@ -114,6 +115,19 @@ proc measureText*(text: string, font: var PlatformFont, fontSize: float): Vec2 =
       fontSize.float32, 1.0'f32)
   result.x = res.x
   result.y = res.y
+
+template withTextureMode*(texture: PlatformTexture, body: untyped) =
+  raylib.beginTextureMode(texture)
+  body
+  raylib.endTextureMode()
+
+template withCamera*(camera: Camera, body: untyped) =
+  raylib.beginMode2D(camera)
+  body
+  raylib.endMode2D()
+
+proc clearBackground*(col = color(0.0, 0.0, 0.0, 0.0)) =
+  raylib.clearBackground(col)
 
 proc drawRectangle*(x, y, w, h: SomeNumber, origin: Vec2,
     rotation: SomeNumber, color: Color) =

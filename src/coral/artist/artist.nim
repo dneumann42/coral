@@ -58,7 +58,7 @@ proc circle*(x, y: SomeNumber, r = 32.0, color = color(1.0, 1.0, 1.0, 1.0)) =
 
 proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
-  drawRectangle(x, y, w, h, origin, rotation, color)
+  drawRectangle(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
 
 proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
     fontSize = 32.0, rotation = 0.0, color = color(1.0, 1.0, 1.0,
@@ -72,6 +72,15 @@ proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
 template layer*(artist: Artist, depth: int, body: untyped) =
   if artist.layers.findIt(it.depth == depth) >= 0:
     artist.layers.add((depth, Layer.init(depth = depth)))
+  artist.layers[depth].target.withTextureMode(body)
+
+template cameraLayer*(artist: Artist, depth: int, body: untyped) =
+  if artist.layers.findIt(it.depth == depth) >= 0:
+    artist.layers.add((depth, Layer.init(depth = depth, camera = true)))
+  artist.layers[depth].target.withTextureMode():
+    artist.camera.withCamera():
+      clearBackground()
+      body
 
 proc paint*(artist: var Artist) =
   for layer in artist.layers.sorted((a, b) => a.depth.cmp(b.depth)):
