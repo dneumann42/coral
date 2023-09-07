@@ -1,5 +1,4 @@
 import vmath, chroma
-import raylib except Color
 
 const WIN_SIZE = vec2(1280, 720)
 

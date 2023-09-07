@@ -5,11 +5,19 @@
 #
 # To run these tests, simply execute `nimble test`.
 
-import unittest
+import unittest, chroma
 
-import coral
-import coral/core/game
+import coral/core/platform2
 
 test "can add":
-  var game = Game.init()
-  game.start()
+  initializeWindow()
+
+  while updateWindow():
+    if K_left.isPressed():
+      echo "A"
+
+    if a.isReleased():
+      echo "B"
+
+    withDrawing:
+      clearBackground(color(0.1, 0.1, 0.1, 1.0))

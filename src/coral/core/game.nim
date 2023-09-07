@@ -56,7 +56,7 @@ proc load(game: var Game) =
   game.scenes.change(Go game.startingScene)
 
 proc update(game: var Game) =
-  game.shouldExit = windowShouldClose()
+  game.shouldExit = updateWindow()
 
   game.withCommands do (game: var Game; cmd: var Commands):
     for loadId in game.scenes.shouldLoad():
