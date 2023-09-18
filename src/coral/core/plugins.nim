@@ -1,3 +1,4 @@
+import std/logging
 import sugar, events, tables, patty, options, commands, states
 import ../artist/artist
 
@@ -33,6 +34,12 @@ type
 
   Plugins* = object
     plugins: Table[string, Plugin]
+
+iterator items*(ps: Plugins): (string, Plugin) =
+  for k in ps.plugins.keys:
+    yield (k, ps.plugins[k])
+
+proc isScene*(p: Plugin): bool = p.isScene
 
 func init*(T: type Plugins): T =
   T(plugins: initTable[string, Plugin]())
@@ -76,6 +83,7 @@ proc load*(self: var Plugins, id: string, e: var Events, a: var Artist,
     return
   for (stage, fn) in self.plugins[id].fs:
     if stage == load:
+      info("Loading: " & id)
       call(fn, e, a, c, s)
 
 proc update*(self: var Plugins, activeScene: Option[string], e: var Events,

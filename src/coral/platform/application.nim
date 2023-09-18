@@ -1,5 +1,6 @@
 import sdl2, tables, chroma, opengl, vmath, std/logging
 import state, resources, renderer, keys
+import sdl2/ttf
 
 template sdlFailIf(condition: typed, reason: string) =
   if condition:
@@ -40,6 +41,8 @@ proc toKeyboardKey(code: Scancode): KeyboardKey =
 proc initializeWindow*(title = "Window") =
   sdlFailIf(not sdl2.init(INIT_VIDEO or INIT_TIMER or INIT_EVENTS)):
     "SDL2 initialiation failed"
+
+  sdlFailIf(ttfInit() == False32, "SDL2 TTF failed to initialize")
 
   setWindow(createWindow(
     title = "Hello, World",
@@ -145,6 +148,16 @@ proc endCanvas*(canvas: Canvas) =
 
 proc loadImage*(path: string) =
   res.load(Texture, path) 
+
+proc loadFont*(path: string, size: int) =
+  res.load(Font, path, size)
+
+proc text*(
+  tex: string,
+  fontId: string,
+  x, y: SomeNumber
+) =
+  ren.text(tex, res.get(Font, fontId), x, y)
 
 proc rect*(
   x, y, w, h: SomeNumber, 

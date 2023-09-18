@@ -1,4 +1,5 @@
-import sdl2/[image, gfx]
+import sequtils
+import sdl2/[image, gfx, ttf]
 import sdl2, hashes, tables, os, state
 
 proc extractFilenameWithoutExt(path: string): string =
@@ -8,33 +9,49 @@ proc extractFilenameWithoutExt(path: string): string =
 type
   Texture* = object
     texture: TexturePtr
-  TextureId* = distinct string
+  Font* = object
+    font: FontPtr
   Resources* = object
-    textures: Table[TextureId, Texture]
+    fonts: Table[string, Font]
+    textures: Table[string, Texture]
 
 proc init*(T: type Resources): T =
-  T(textures: initTable[TextureId, Texture]())
+  T(textures: initTable[string, Texture](),
+    fonts: initTable[string, Font](),)
  
 proc init*(T: type Texture, tptr: TexturePtr): T =
   T(texture: tptr)
 
-proc load*(T: type Texture, path: string): Texture =
+proc load*(T: type Texture, path: string): T =
   var tex = getRenderer().loadTexture(path.cstring)
   if tex.isNil:
     return
-  Texture(texture: tex)
+  T(texture: tex)
+
+proc load*(T: type Font, path: string, size: int): T =
+  var fnt = openFont(path.cstring, size.cint)
+  if fnt.isNil:
+    echo getError()
+    return
+  T(font: fnt)
 
 proc load*(res: var Resources, T: type Texture, path: string) =
-  res.textures[extractFilenameWithoutExt(path).TextureId] = T.load(path)
+  res.textures[extractFilenameWithoutExt(path)] = T.load(path)
+
+proc load*(res: var Resources, T: type Font, path: string, size: int) =
+  res.fonts[extractFilenameWithoutExt(path)] = T.load(path, size)
 
 proc get*(res: var Resources, T: type Texture, id: string): T =
-  res.textures[id.TextureId]
+  res.textures[id]
+
+proc get*(res: var Resources, T: type Font, id: string): T =
+  res.fonts[id]
 
 proc texPtr*(t: Texture): TexturePtr =
   t.texture
 
+proc fontPtr*(t: Font): FontPtr =
+  t.font
+
 proc `delete=`*(tex: Texture) =
   destroyTexture(tex.texture)
-
-proc hash*(a: TextureId): Hash {.borrow.}
-proc `==`*(a, b: TextureId): bool {.borrow.}

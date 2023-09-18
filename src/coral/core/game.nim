@@ -56,6 +56,11 @@ proc load(game: var Game) =
   initializeWindow(title = game.title)
   game.scenes.change(Go game.startingScene)
 
+  game.withCommands do (game: var Game; cmd: var Commands):
+    for (id, plugin) in game.plugins:
+      if not plugin.isScene:
+          game.plugins.load(id, game.events, game.artist, cmd, game.state)
+
 proc update(game: var Game) =
   game.withCommands do (game: var Game; cmd: var Commands):
     for loadId in game.scenes.shouldLoad():

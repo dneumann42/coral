@@ -1,4 +1,5 @@
 import patty, sets, typetraits, sequtils, options
+import std/logging
 
 type SceneId* = string
 
@@ -35,6 +36,7 @@ proc pop*(self: var Scenes): Option[SceneId] =
 
 proc change*(self: var Scenes, ch: SceneChange): Option[
     SceneId] {.discardable.} =
+  info("Changing scene: " & $ch)
   match ch:
     Go(pushId):
       self.loadSet.incl(pushId)

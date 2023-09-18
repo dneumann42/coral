@@ -1,11 +1,12 @@
 import sdl2, vmath, chroma, tables
-import sdl2/[gfx, image]
-import std/logging
+import sdl2/[gfx, image, ttf]
+import std/[logging, md5]
 import resources, state
 
 type 
   Rectangle* = tuple[x, y, w, h: float]
   Renderer* = object
+    texts: Table[string, TexturePtr]
   Camera* = object
   Canvas* = TexturePtr
 
@@ -13,16 +14,16 @@ proc toSDLRect(r: Rectangle): Rect =
   rect(r.x.cint, r.y.cint, r.w.cint, r.h.cint)
 
 proc init*(T: type Renderer): T =
-  T()
+  T(texts: initTable[string, TexturePtr]())
 
 proc init*(T: type Canvas, width, height: SomeInteger): T =
   getRenderer().createTexture(
     SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width.int32, height.int32
   )
 
-proc size*(canvas: Canvas): (int, int) =
+proc size*(tex: TexturePtr): (int, int) =
   var w, h: cint
-  canvas.queryTexture(nil, nil, w.addr, h.addr)
+  tex.queryTexture(nil, nil, w.addr, h.addr)
   (w.int, h.int)
 
 template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0), blk: untyped) =
@@ -63,6 +64,40 @@ proc circle*(
   getRenderer().filledCircleRGBA(
     int16(x), int16(y), int16(radius),
     c.r, c.g, c.b, c.a)
+
+proc text*(
+  ren: var Renderer,
+  tex: string,
+  font: Font,
+  x, y: SomeNumber
+) =
+  var texture = block:
+    let id = $tex.toMD5
+    if ren.texts.hasKey(id):
+      ren.texts[id] 
+    else:
+      var surface = renderTextSolid(
+        font.fontPtr, 
+        tex.cstring, 
+        (r: 255.uint8, g: 255.uint8, b: 255.uint8, a: 255.uint8))
+      var tex = getRenderer().createTextureFromSurface(surface)
+      freeSurface(surface)
+      ren.texts[id] = tex
+      tex
+
+  var (w, h) = texture.size()
+
+  var d = (x.float, y.float, w.float, h.float).toSDLRect()
+  var p = point(0, 0)
+  
+  getRenderer().copyEx(
+    texture,
+    nil, 
+    d.addr,
+    0.0,
+    p.addr,
+    0
+  )
 
 proc texture*(
   ren: Renderer,
