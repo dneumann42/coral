@@ -1,7 +1,7 @@
 import events, plugins, scenes, options, resources, commands, patty, states
 import ../artist/artist
 
-from platform import initializeWindow, windowShouldClose
+import platform/application
 
 type
   Game* = object
@@ -75,6 +75,7 @@ proc draw(game: var Game) =
 
 proc start*(game: var Game) =
   game.load()
-  while not game.shouldExit:
+  while updateWindow():
     game.update()
-    game.draw()
+    withDrawing:
+      game.draw()
