@@ -5,36 +5,42 @@
 #
 # To run these tests, simply execute `nimble test`.
 
-import unittest, chroma, vmath
+import unittest, chroma, vmath, options
 
-import coral/platform/application
-import coral/platform/renderer
+import coral/platform/[application, renderer, keys]
+import coral/artist/artist
+import coral/core/[game, plugins, inputs, commands]
 
-test "can add":
-  initializeWindow()
+proc mainMenu(plugins: var Plugins) =
+  proc load() =
+    echo("LOADING mainmenu")
 
+  proc update(cmds: var Commands) =
+    if K_return.press: 
+      cmds.changeScene("gamescene")
+
+  proc draw() =
+    rect(100.0, 100.0, 100.0, 100.0, color=color(0.0, 1.0, 0.5, 1.0))
+
+  plugins.scene("mainmenu", load, update, draw)
+
+proc gameScene(plugins: var Plugins) =
+  proc load() =
+    echo("LOADING mainmenu")
+
+  proc update(cmds: var Commands) =
+    if K_return.press: 
+      cmds.changeScene("mainmenu")
+
+  proc draw() =
+    rect(100.0, 100.0, 100.0, 100.0, color=color(1.0, 0.5, 0.1, 1.0))
+
+  plugins.scene("gamescene", load, update, draw)
+
+test "it can play games":
   loadImage("tests/peppers.png")
 
-  while updateWindow():
-    if left.isPressed():
-      echo "A"
-
-    if a.isReleased():
-      echo "B"
-
-    withDrawing:
-      rect(
-        sin(clockTimer() * 10.0) * 10.0 + 100.0,
-        cos(clockTimer() * 10.0) * 10.0 + 100.0, 100.0, 100.0)
-
-      circle(
-        sin(clockTimer() * 5.0) * 20.0 + 400.0,
-        cos(clockTimer() * 10.0) * 10.0 + 100.0, 
-        150 + sin(clockTimer()) * 50.0, 
-        color(0.0, 0.5, 1.0, 1.0))
-
-      texture(
-        "peppers", 
-        (100.0, 100.0, 100.0, 100.0), 
-        (100.0, 100.0, 100.0, 100.0)
-      )
+  var game = Game.init(title = "Test game", startingScene = "mainmenu".some)
+  game.plugins.mainMenu()
+  game.plugins.gameScene()
+  game.start()

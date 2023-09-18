@@ -1,7 +1,8 @@
-import events, plugins, scenes, options, resources, commands, patty, states
+import events, plugins, scenes, options, commands, patty, states
 import ../artist/artist
 
-import platform/application
+import ../platform/application
+import ../platform/resources
 
 type
   Game* = object
@@ -56,22 +57,17 @@ proc load(game: var Game) =
   game.scenes.change(Go game.startingScene)
 
 proc update(game: var Game) =
-  game.shouldExit = updateWindow()
-
   game.withCommands do (game: var Game; cmd: var Commands):
     for loadId in game.scenes.shouldLoad():
-      game.plugins.load(loadId, game.events, game.artist, game.resources, cmd, game.state)
+      game.plugins.load(loadId, game.events, game.artist, cmd, game.state)
 
   game.withCommands do (game: var Game; cmd: var Commands):
-    game.plugins.update(game.scenes.activeScene(), game.events, game.artist,
-        game.resources, cmd, game.state)
+    game.plugins.update(game.scenes.activeScene(), game.events, game.artist, cmd, game.state)
 
 proc draw(game: var Game) =
-  artist.withDrawing:
-    game.withCommands do (game: var Game; cmd: var Commands):
-      game.plugins.draw(game.scenes.activeScene(), game.events, game.artist,
-          game.resources, cmd, game.state)
-      game.artist.paint()
+  game.withCommands do (game: var Game; cmd: var Commands):
+    game.plugins.draw(game.scenes.activeScene(), game.events, game.artist, cmd, game.state)
+    game.artist.paint()
 
 proc start*(game: var Game) =
   game.load()

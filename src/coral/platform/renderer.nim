@@ -4,14 +4,26 @@ import std/logging
 import resources, state
 
 type 
-  Rectangle = tuple[x, y, w, h: float]
+  Rectangle* = tuple[x, y, w, h: float]
   Renderer* = object
+  Camera* = object
+  Canvas* = TexturePtr
 
 proc toSDLRect(r: Rectangle): Rect =
   rect(r.x.cint, r.y.cint, r.w.cint, r.h.cint)
 
 proc init*(T: type Renderer): T =
   T()
+
+proc init*(T: type Canvas, width, height: SomeInteger): T =
+  getRenderer().createTexture(
+    SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width.int32, height.int32
+  )
+
+proc size*(canvas: Canvas): (int, int) =
+  var w, h: cint
+  canvas.queryTexture(nil, nil, w.addr, h.addr)
+  (w.int, h.int)
 
 template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0), blk: untyped) =
   var last: ColorRGBA

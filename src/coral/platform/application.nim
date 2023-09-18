@@ -1,6 +1,5 @@
 import sdl2, tables, chroma, opengl, vmath, std/logging
-import state
-import resources, renderer
+import state, resources, renderer, keys
 
 template sdlFailIf(condition: typed, reason: string) =
   if condition:
@@ -11,11 +10,6 @@ var fileLog = newFileLogger("errors.log", levelThreshold=lvlError)
 
 addHandler(consoleLog)
 addHandler(fileLog)
-
-include keys
-include renderer
-
-export Texture
 
 type
   Clock = object
@@ -74,6 +68,13 @@ proc initializeWindow*(title = "Window") =
   clock.ticks = getPerformanceCounter()
   ren = Renderer.init()
   res = Resources.init()
+
+proc windowSize*(): (int, int) =
+  var 
+    w: cint = 0
+    h: cint = 0
+  getWindow().getSize(w, h)
+  (w.int, h.int)
 
 proc isDown*(key: KeyboardKey): bool =
   if inputs.hasKey(key):
@@ -135,6 +136,12 @@ proc beginDrawing() =
 
 proc endDrawing() =
   ren.endDrawing()
+
+proc startCanvas*(canvas: Canvas) =
+  getRenderer().setRenderTarget(canvas)
+
+proc endCanvas*(canvas: Canvas) =
+  getRenderer().setRenderTarget(nil)
 
 proc loadImage*(path: string) =
   res.load(Texture, path) 

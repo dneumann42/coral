@@ -1,13 +1,10 @@
 import algorithm, sequtils, sugar, vmath, chroma
 
-import ../core/platform as pl
+import ../platform/application
+
+from ../platform/renderer import Canvas, Camera, size
 
 type
-  Rect* = Rectangle
-
-  Canvas* = pl.Canvas
-  Camera* = pl.Camera
-
   Align* = enum
     left
     center
@@ -30,8 +27,13 @@ type
 proc tup*(v: Vec2): (float32, float32) = (v.x, v.y)
 proc tup*(v: Vec3): (float32, float32, float32) = (v.x, v.y, v.z)
 
-proc screenWidth*(): float = pl.screenWidth()
-proc screenHeight*(): float = pl.screenHeight()
+proc screenWidth*(): float =
+  let (w, _) = windowSize()
+  w.float
+
+proc screenHeight*(): float =
+  let (h, _) = windowSize()
+  h.float
 
 proc init*(T: type Layer, w = screenWidth(), h = screenHeight(), depth = 0,
     camera = false): T =
@@ -39,48 +41,46 @@ proc init*(T: type Layer, w = screenWidth(), h = screenHeight(), depth = 0,
     camera: camera,
     target: Canvas.init(screenWidth(), screenHeight()))
 
-proc init(T: type Artist): T =
+proc init*(T: type Artist): T =
   T(camera: Camera.init(),
     layers: @[])
 
-template withDrawing*(body: untyped) =
-  pl.withDrawing(body)
-
 proc size*(layer: Layer): Vec2 =
-  layer.target.size()
-
-proc line*(x1, y1, x2, y2: SomeNumber, thickness = 1.0, color = color(1.0, 1.0,
-    1.0, 1.0)) =
-  drawLine(x1, y1, x2, y2, thickness, color)
+  let (x, y) = layer.target.size()
+  result.x = x.float
+  result.y = y.float
 
 proc circle*(x, y: SomeNumber, r = 32.0, color = color(1.0, 1.0, 1.0, 1.0)) =
-  drawCircle(x, y, r, color)
+  application.circle(x, y, r, color)
 
 proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
-  drawRectangle(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
+  application.rect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
 
-proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
-    fontSize = 32.0, rotation = 0.0, color = color(1.0, 1.0, 1.0,
-    1.0), align: Align = left) =
-  let size = measureText(text, font, fontSize)
-  if align == left:
-    drawText(x, y, text, font, fontSize, rotation, color)
-  if align == center:
-    drawText(x - size.x / 2.0, y, text, font, fontSize, rotation, color)
+# proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
+#     fontSize = 32.0, rotation = 0.0, color = color(1.0, 1.0, 1.0,
+#     1.0), align: Align = left) =
+#   let size = measureText(text, font, fontSize)
+#   if align == left:
+#     drawText(x, y, text, font, fontSize, rotation, color)
+#   if align == center:
+#     drawText(x - size.x / 2.0, y, text, font, fontSize, rotation, color)
 
 template layer*(artist: Artist, depth: int, body: untyped) =
   if artist.layers.findIt(it.depth == depth) >= 0:
     artist.layers.add((depth, Layer.init(depth = depth)))
-  artist.layers[depth].target.withTextureMode(body)
+  startCanvas(artist.layers[depth].target)
+  body
+  endCanvas()
 
 template cameraLayer*(artist: Artist, depth: int, body: untyped) =
   if artist.layers.findIt(it.depth == depth) >= 0:
     artist.layers.add((depth, Layer.init(depth = depth, camera = true)))
-  artist.layers[depth].target.withTextureMode():
-    artist.camera.withCamera():
-      clearBackground()
-      body
+  startCanvas(artist.layers[depth].target)
+  artist.camera.withCamera():
+    clearBackground()
+    body
+  endCanvas()
 
 proc paint*(artist: var Artist) =
   for layer in artist.layers.sorted((a, b) => a.depth.cmp(b.depth)):
@@ -88,4 +88,4 @@ proc paint*(artist: var Artist) =
     let src = (0.0'f32, 0.0'f32, w, -h)
     let dst = (screenWidth().float32 / 2.0'f32 - w / 2.0'f32, screenHeight(
       ).float32 / 2.0'f32 + h / 2.0'f32, w, -h)
-    layer.target.drawCanvas(src, dst)
+    # layer.target.drawCanvas(src, dst)
