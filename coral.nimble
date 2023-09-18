@@ -21,3 +21,5 @@ requires "jsony"
 requires "sdl2"
 requires "opengl"
 requires "print"
+requires "fusion"
+

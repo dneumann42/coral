@@ -10,7 +10,10 @@ type FnC = (var Commands) -> void
 type FnS = (var GameState) -> void
 type FnCS = (var Commands, var GameState) -> void
 
-type SomeFunc = Fn | FnVE | FnE | FnC | FnS | FnCS
+type FnA = (var Artist) -> void
+type FnAS = (var Artist, var GameState) -> void
+
+type SomeFunc = Fn | FnVE | FnE | FnC | FnS | FnCS | FnA | FnAS
 
 variant Function:
   Fun(f: Fn)
@@ -19,6 +22,8 @@ variant Function:
   FunC(fc: FnC)
   FunS(fs: FnS)
   FunCS(fcs: FnCS)
+  FunA(fa: FnA)
+  FunAS(fas: FnAS)
 
 type
   PluginStage* = enum
@@ -55,6 +60,8 @@ func asFun(f: SomeFunc): Function =
   elif f is FnC: FunC(f)
   elif f is FnS: FunS(f)
   elif f is FnCS: FunCS(f)
+  elif f is FnA: FunA(f)
+  elif f is FnAS: FunAS(f)
 
 proc call*(fn: Function, e: var Events, a: var Artist,
     c: var Commands, s: var GameState) =
@@ -65,6 +72,8 @@ proc call*(fn: Function, e: var Events, a: var Artist,
     FunC(f): f(c)
     FunS(f): f(s)
     FunCS(f): f(c, s)
+    FunA(f): f(a)
+    FunAS(f): f(a, s)
 
 proc doStage*(self: var Plugins, stage: PluginStage, activeScene: Option[
     string], e: var Events, a: var Artist, c: var Commands,
@@ -111,6 +120,10 @@ proc add*(ps: var Plugins, id: string, stage: PluginStage,
     f: FnS): var Plugins {.discardable.} = impl(f)
 proc add*(ps: var Plugins, id: string, stage: PluginStage,
     f: FnCS): var Plugins {.discardable.} = impl(f)
+proc add*(ps: var Plugins, id: string, stage: PluginStage,
+    f: FnA): var Plugins {.discardable.} = impl(f)
+proc add*(ps: var Plugins, id: string, stage: PluginStage,
+    f: FnAS): var Plugins {.discardable.} = impl(f)
 
 template plugin*(ps: var Plugins, id: string, lod: untyped, upd: untyped,
     drw: untyped): var Plugins =

@@ -3,7 +3,7 @@ import sdl2/[gfx, image, ttf]
 import std/[logging, md5]
 import resources, state
 
-type 
+type
   Rectangle* = tuple[x, y, w, h: float]
   Renderer* = object
     texts: Table[string, TexturePtr]
@@ -26,7 +26,8 @@ proc size*(tex: TexturePtr): (int, int) =
   tex.queryTexture(nil, nil, w.addr, h.addr)
   (w.int, h.int)
 
-template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0), blk: untyped) =
+template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0),
+    blk: untyped) =
   var last: ColorRGBA
   var rgba = color.rgba
   getRenderer().getDrawColor(last.r, last.g, last.b, last.a)
@@ -45,8 +46,8 @@ proc rect*(
   ren: Renderer,
   x, y,
   w, h: SomeNumber,
-  origin = vec2(), 
-  rotation = 0.0, 
+  origin = vec2(),
+  rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.pushColor(color):
     var r = rect(
@@ -56,14 +57,19 @@ proc rect*(
     getRenderer().fillRect(r)
 
 proc circle*(
-  ren: Renderer, 
-  x, y: SomeNumber, 
+  ren: Renderer,
+  x, y: SomeNumber,
   radius: SomeNumber,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   let c = color.rgba
   getRenderer().filledCircleRGBA(
     int16(x), int16(y), int16(radius),
     c.r, c.g, c.b, c.a)
+
+proc measureString*(font: Font, text: string): Vec2 =
+  var w, h: cint
+  discard sizeText(font.fontPtr, text.cstring, w.addr, h.addr)
+  result = vec2(w.float, h.float)
 
 proc text*(
   ren: var Renderer,
@@ -74,11 +80,11 @@ proc text*(
   var texture = block:
     let id = $tex.toMD5
     if ren.texts.hasKey(id):
-      ren.texts[id] 
+      ren.texts[id]
     else:
       var surface = renderTextSolid(
-        font.fontPtr, 
-        tex.cstring, 
+        font.fontPtr,
+        tex.cstring,
         (r: 255.uint8, g: 255.uint8, b: 255.uint8, a: 255.uint8))
       var tex = getRenderer().createTextureFromSurface(surface)
       freeSurface(surface)
@@ -89,10 +95,10 @@ proc text*(
 
   var d = (x.float, y.float, w.float, h.float).toSDLRect()
   var p = point(0, 0)
-  
+
   getRenderer().copyEx(
     texture,
-    nil, 
+    nil,
     d.addr,
     0.0,
     p.addr,
@@ -112,7 +118,7 @@ proc texture*(
   var p = point(0, 0)
   getRenderer().copyEx(
     tex.texPtr,
-    s.addr, 
+    s.addr,
     d.addr,
     rotation,
     p.addr,

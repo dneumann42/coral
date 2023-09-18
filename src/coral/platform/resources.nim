@@ -1,8 +1,8 @@
-import sequtils
+import sequtils, std/logging
 import sdl2/[image, gfx, ttf]
 import sdl2, hashes, tables, os, state
 
-proc extractFilenameWithoutExt(path: string): string =
+proc extractFilenameWithoutExt*(path: string): string =
   let subpath = extractFilename(path)
   result = subpath.substr(0, searchExtPos(subpath) - 1)
 
@@ -17,8 +17,8 @@ type
 
 proc init*(T: type Resources): T =
   T(textures: initTable[string, Texture](),
-    fonts: initTable[string, Font](),)
- 
+    fonts: initTable[string, Font](), )
+
 proc init*(T: type Texture, tptr: TexturePtr): T =
   T(texture: tptr)
 
@@ -35,11 +35,13 @@ proc load*(T: type Font, path: string, size: int): T =
     return
   T(font: fnt)
 
-proc load*(res: var Resources, T: type Texture, path: string) =
-  res.textures[extractFilenameWithoutExt(path)] = T.load(path)
+proc load*(res: var Resources, T: type Texture, path, id: string) =
+  info("Loading texture " & id & "...")
+  res.textures[id] = T.load(path)
 
-proc load*(res: var Resources, T: type Font, path: string, size: int) =
-  res.fonts[extractFilenameWithoutExt(path)] = T.load(path, size)
+proc load*(res: var Resources, T: type Font, path, id: string, size: int) =
+  info("Loading font " & id & "...")
+  res.fonts[id] = T.load(path, size)
 
 proc get*(res: var Resources, T: type Texture, id: string): T =
   res.textures[id]

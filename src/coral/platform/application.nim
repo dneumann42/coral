@@ -7,7 +7,7 @@ template sdlFailIf(condition: typed, reason: string) =
     raise newException(OSError, reason)
 
 var consoleLog = newConsoleLogger()
-var fileLog = newFileLogger("errors.log", levelThreshold=lvlError)
+var fileLog = newFileLogger("errors.log", levelThreshold = lvlError)
 
 addHandler(consoleLog)
 addHandler(fileLog)
@@ -33,7 +33,7 @@ proc fps*(): float =
   1.0 / clock.dt
 
 proc clockTimer*(): float =
-  clock.timer 
+  clock.timer
 
 proc toKeyboardKey(code: Scancode): KeyboardKey =
   cast[KeyboardKey](code)
@@ -73,7 +73,7 @@ proc initializeWindow*(title = "Window") =
   res = Resources.init()
 
 proc windowSize*(): (int, int) =
-  var 
+  var
     w: cint = 0
     h: cint = 0
   getWindow().getSize(w, h)
@@ -142,15 +142,23 @@ proc endDrawing() =
 
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
+  ren.pushColor(color(0.0, 0.0, 0.0, 0.0)):
+    getRenderer().clear()
 
-proc endCanvas*(canvas: Canvas) =
+proc endCanvas*() =
   getRenderer().setRenderTarget(nil)
 
-proc loadImage*(path: string) =
-  res.load(Texture, path) 
+proc loadImage*(path, id: string) = res.load(Texture, path, id)
+proc loadFont*(path, id: string, size: int) = res.load(Font, path, id, size)
 
-proc loadFont*(path: string, size: int) =
-  res.load(Font, path, size)
+proc loadImage*(path: string) =
+  res.load(Texture, path, path.extractFilenameWithoutExt())
+proc loadFont*(path: string, size: int) = 
+  res.load(Font, path, path.extractFilenameWithoutExt(), size)
+
+# TODO: make fontId distinct so accedental assignment is prevented
+proc measureString*(text: string, fontId: string): Vec2 =
+  result = res.get(Font, fontId).measureString(text)
 
 proc text*(
   tex: string,
@@ -160,14 +168,14 @@ proc text*(
   ren.text(tex, res.get(Font, fontId), x, y)
 
 proc rect*(
-  x, y, w, h: SomeNumber, 
-  origin = vec2(), 
-  rotation = 0.0, 
+  x, y, w, h: SomeNumber,
+  origin = vec2(),
+  rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.rect(x, y, w, h, origin, rotation, color)
 
 proc circle*(
-  x, y: SomeNumber, 
+  x, y: SomeNumber,
   radius: SomeNumber,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.circle(x, y, radius, color)
@@ -180,6 +188,15 @@ proc texture*(
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.texture(res.get(Texture, texId), src, dst, origin, rotation, color)
+
+proc texture*(
+  tex: TexturePtr,
+  src: Rectangle,
+  dst: Rectangle,
+  origin = vec2(),
+  rotation = 0.0,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  ren.texture(Texture.init(tex), src, dst, origin, rotation, color)
 
 template withDrawing*(blk: untyped) =
   beginDrawing()

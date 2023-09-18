@@ -1,12 +1,14 @@
-import raylib
-import os, sets, tables, algorithm, sugar, json, sequtils, strformat
+import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
+    strutils, sets
 import std/[paths, re]
 import std/md5
+import ../platform/resources
 
 type
+  Image = object
   Config = object
     dir: string
-    images: seq[string]
+    images*: seq[string]
     hashes: Table[string, string]
 
   Rect = object
@@ -20,10 +22,13 @@ type
   OutImage* = object
     id*: string
     path*: string
+  ImageGroup* = object
+    id*: string
+    images*: seq[OutImage]
   Atlas* = object
-    config: Config
-    sprites: Table[string, OutRect]
-    images: Table[string, OutImage]
+    config*: Config
+    sprites*: Table[string, OutRect]
+    imageGroups*: Table[string, ImageGroup]
 
 proc equals(a, b: Table[string, string]): bool =
   result = true
@@ -48,9 +53,9 @@ func basename(path: string): string =
   let fn = path.extractFilename()
   result = path.substr(0, (path.len - fn.len) - 1)
 
-proc load(T: type Config, path: Path): Config =
-  result = readFile(path.string).parseJson().to(Config)
-  result.dir = path.string.basename
+proc load*(T: type Config, path: string): Config =
+  result = readFile(path).parseJson().to(Config)
+  result.dir = path.basename
 
 proc allSpritesInFolder*(config: Config, dir: Path, exts = DefaultExts): seq[string] =
   for file in walkDirRec(dir.string):
@@ -69,57 +74,67 @@ proc getId(path: string): string =
   let fn = extractFilename(path)
   result = fn.substr(0, searchExtPos(fn)-1)
 
-proc generateAtlas(config: Config, path: Path): tuple[target: Image, rects: seq[Rect]] =
-  result.target = genImageColor(512, 512, Color(r: 0, g: 0, b: 0, a: 0))
-  result.rects = newSeq[Rect]()
+proc generateAtlas(config: Config, path: string): tuple[target: Image,
+    rects: seq[Rect]] =
+  discard
+  # result.target = genImageColor(512, 512, Color(r: 0, g: 0, b: 0, a: 0))
+  # result.rects = newSeq[Rect]()
 
-  var images = newTable[string, Image]()
+  # var images = newTable[string, Image]()
 
-  for path in config.allSpritesInFolder(path):
-    let id = getId(path)
-    let img = loadImage(path)
-    result.rects.add(initRect(id, 0.0, 0.0, img.width.float, img.height.float))
-    images[id] = imageCopy(img)
+  # for path in config.allSpritesInFolder(path):
+  #   let id = getId(path)
+  #   let img = loadImage(path)
+  #   result.rects.add(initRect(id, 0.0, 0.0, img.width.float, img.height.float))
+  #   images[id] = imageCopy(img)
 
-  result.rects.sort (a, b: Rect) => cmp(b.h, a.h)
+  # result.rects.sort (a, b: Rect) => cmp(b.h, a.h)
 
-  var x, y, maxHeight = 0.0
-  for r in result.rects.mitems:
-    if x + r.w > result.target.width.float:
-      y += maxHeight
-      x = 0.0
-      maxHeight = 0.0
+  # var x, y, maxHeight = 0.0
+  # for r in result.rects.mitems:
+  #   if x + r.w > result.target.width.float:
+  #     y += maxHeight
+  #     x = 0.0
+  #     maxHeight = 0.0
 
-    if y + r.h > result.target.height.float:
-      break
+  #   if y + r.h > result.target.height.float:
+  #     break
 
-    r.x = x
-    r.y = y
-    x += r.w
-    maxHeight = max(r.h, maxHeight)
+  #   r.x = x
+  #   r.y = y
+  #   x += r.w
+  #   maxHeight = max(r.h, maxHeight)
 
-  for r in result.rects:
-    let
-      img = images[r.id]
-      sr = Rectangle(x: 0, y: 0, width: img.width.float32,
-          height: img.height.float32)
-      dr = Rectangle(x: r.x, y: r.y, width: img.width.float32,
-          height: img.height.float32)
-    imageDraw(result.target, img, sr, dr, White)
+  # for r in result.rects:
+  #   let
+  #     img = images[r.id]
+  #     sr = Rectangle(x: 0, y: 0, width: img.width.float32,
+  #         height: img.height.float32)
+  #     dr = Rectangle(x: r.x, y: r.y, width: img.width.float32,
+  #         height: img.height.float32)
+  #   imageDraw(result.target, img, sr, dr, White)
 
-proc createAtlasData*(config: Config, imagesDir: Path, rects: seq[
-    Rect]): JsonNode =
-  let images = collect:
-    for p in config.allImagesInFolder(imagesDir):
-      let id = getId(p)
-      (id, OutImage(id: id, path: p))
+proc createAtlasData*(config: Config, rects: seq[
+    Rect]): Atlas =
+  var groups: seq[tuple[id: string, path: string]] = @[]
 
-  result = %* Atlas(
-    sprites: rects.map(toOutRect).map(r => (r.id, r)).toTable,
-    images: images.toTable
-  )
+  for item in walkDir(config.dir):
+    if item.kind != pcDir:
+      continue
+    for group in config.images:
+      if item.path.endsWith(group):
+        groups.add((group, item.path))
+        break
 
-proc updateHashes(config: var Config): bool =
+  result = Atlas()
+  for (id, path) in groups:
+    var imgGroup = ImageGroup(id: id, images: @[])
+    for item in walkDir(path):
+      let imgId = item.path.extractFilenameWithoutExt()
+      imgGroup.images.add(OutImage(id: &"{id}-{imgId}", path: item.path))
+    result.imageGroups[id] = imgGroup
+
+proc updateHashes*(config: var Config): bool =
   for path in config.allSpritesInFolder(config.dir.Path):
     let contents = readFile(path)
     let hash = contents.toMD5
@@ -130,22 +145,25 @@ proc updateHashes(config: var Config): bool =
 
     config.hashes[id] = $hash
 
-proc start(imagesDir, outDir: Path, name = "atlas", format = "png",
+proc loadConfig*(atlasDir: string): Config =
+  Config.load(atlasDir / "config.json")
+
+proc start(imagesDir, outDir: string, name = "atlas", format = "png",
     prettify = false) =
+  var config = imagesDir.loadConfig()
 
-  var config = Config.load(imagesDir / "config.json".Path)
-
-  if not fileExists(imagesDir.string / &"{name}.{format}") or config.updateHashes():
-    let (atlas, rects) = config.generateAtlas(imagesDir)
-    let atlasData = config.createAtlasData(imagesDir, rects)
-    writeFile(outDir.string / &"{name}.json", atlasData.pretty)
-    discard exportImage(atlas, (outDir.string / &"{name}.{format}").cstring)
+  # if not fileExists(imagesDir.string / &"{name}.{format}") or
+  #     config.updateHashes():
+  #   let (atlas, rects) = config.generateAtlas(imagesDir)
+  #   let atlasData = config.createAtlasData(imagesDir, rects)
+  #   writeFile(outDir.string / &"{name}.json", atlasData.pretty)
+  #   discard exportImage(atlas, (outDir.string / &"{name}.{format}").cstring)
 
   writeFile(imagesDir.string / "config.json", ( % config).pretty)
 
-proc load*(T: type Atlas, atlasDirs: string) =
-  start(atlasDirs.Path, atlasDirs.Path)
+proc load*(T: type Atlas, atlasDirs: string): T =
+  readFile(atlasDirs / "atlas.json").parseJson().to(T)
 
 when isMainModule:
   import cligen
-  dispatch start
+  # dispatch start

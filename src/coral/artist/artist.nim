@@ -1,8 +1,8 @@
-import algorithm, sequtils, sugar, vmath, chroma
+import algorithm, sequtils, sugar, vmath, chroma, os, jsony
 
 import ../platform/application
-
-from ../platform/renderer import Canvas, Camera, size
+import ../platform/renderer
+import atlas
 
 type
   Align* = enum
@@ -23,17 +23,29 @@ type
   Artist* = object
     camera: Camera
     layers: seq[Layer]
+    atlas: Atlas
+
+var containerSize = vec2()
 
 proc tup*(v: Vec2): (float32, float32) = (v.x, v.y)
 proc tup*(v: Vec3): (float32, float32, float32) = (v.x, v.y, v.z)
 
-proc screenWidth*(): float =
+proc screenWidth*(): int =
   let (w, _) = windowSize()
-  w.float
+  w
 
-proc screenHeight*(): float =
-  let (h, _) = windowSize()
-  h.float
+proc screenHeight*(): int =
+  let (_, h) = windowSize()
+  h
+
+proc layerWidth*(): int =
+  containerSize.x.int
+
+proc layerHeight*(): int =
+  containerSize.y.int
+
+proc layerCenter*(): Vec2 =
+  containerSize / 2.0
 
 proc init*(T: type Layer, w = screenWidth(), h = screenHeight(), depth = 0,
     camera = false): T =
@@ -44,6 +56,13 @@ proc init*(T: type Layer, w = screenWidth(), h = screenHeight(), depth = 0,
 proc init*(T: type Artist): T =
   T(camera: Camera.init(),
     layers: @[])
+
+proc atlas*(artist: Artist): Atlas =
+  artist.atlas
+
+proc loadAtlas*(artist: var Artist, atlasPath: string) =
+  artist.atlas = "res/textures".loadConfig().createAtlasData(@[])
+  writeFile(atlasPath / "atlas.json",  artist.atlas.toJson())
 
 proc size*(layer: Layer): Vec2 =
   let (x, y) = layer.target.size()
@@ -57,35 +76,31 @@ proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
   application.rect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
 
-# proc text*(font: var PlatformFont, x, y: SomeNumber, text = "Hello, World",
-#     fontSize = 32.0, rotation = 0.0, color = color(1.0, 1.0, 1.0,
-#     1.0), align: Align = left) =
-#   let size = measureText(text, font, fontSize)
-#   if align == left:
-#     drawText(x, y, text, font, fontSize, rotation, color)
-#   if align == center:
-#     drawText(x - size.x / 2.0, y, text, font, fontSize, rotation, color)
+proc getOrCreateLayer*(artist: var Artist, depth: int, camera = false): Layer =
+  for layer in artist.layers:
+    if layer.depth == depth:
+      return layer
+  result = Layer.init(depth = depth, camera = true)
+  artist.layers.add(result)
 
-template layer*(artist: Artist, depth: int, body: untyped) =
-  if artist.layers.findIt(it.depth == depth) >= 0:
-    artist.layers.add((depth, Layer.init(depth = depth)))
-  startCanvas(artist.layers[depth].target)
+template layer*(artist: var Artist, depth: int, body: untyped) =
+  let layer = artist.getOrCreateLayer(depth)
+  startCanvas(layer.target)
+  containerSize = layer.size()
   body
   endCanvas()
 
-template cameraLayer*(artist: Artist, depth: int, body: untyped) =
-  if artist.layers.findIt(it.depth == depth) >= 0:
-    artist.layers.add((depth, Layer.init(depth = depth, camera = true)))
-  startCanvas(artist.layers[depth].target)
-  artist.camera.withCamera():
-    clearBackground()
+template cameraLayer*(artist: var Artist, depth: int, body: untyped) =
+  let layer = artist.getOrCreateLayer(depth)
+  startCanvas(layer.target, true)
+  containerSize = layer.size()
+  artist.camera.withCamera() do:
     body
   endCanvas()
 
 proc paint*(artist: var Artist) =
   for layer in artist.layers.sorted((a, b) => a.depth.cmp(b.depth)):
     let (w, h) = layer.size().tup
-    let src = (0.0'f32, 0.0'f32, w, -h)
-    let dst = (screenWidth().float32 / 2.0'f32 - w / 2.0'f32, screenHeight(
-      ).float32 / 2.0'f32 + h / 2.0'f32, w, -h)
-    # layer.target.drawCanvas(src, dst)
+    let src = (0.0, 0.0, w.float, h.float)
+    let dst = (0.0, 0.0, w.float, h.float)
+    texture(layer.target, src, dst)
