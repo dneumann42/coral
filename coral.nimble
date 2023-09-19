@@ -22,4 +22,4 @@ requires "sdl2"
 requires "opengl"
 requires "print"
 requires "fusion"
-
+requires "cascade"

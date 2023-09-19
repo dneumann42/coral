@@ -130,6 +130,8 @@ proc createAtlasData*(config: Config, rects: seq[
   for (id, path) in groups:
     var imgGroup = ImageGroup(id: id, images: @[])
     for item in walkDir(path):
+      if not item.path.endsWith("png"):
+        continue
       let imgId = item.path.extractFilenameWithoutExt()
       imgGroup.images.add(OutImage(id: &"{id}-{imgId}", path: item.path))
     result.imageGroups[id] = imgGroup

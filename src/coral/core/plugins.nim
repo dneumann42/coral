@@ -36,9 +36,12 @@ type
   Plugin = object
     fs: seq[PluginFunction]
     isScene: bool
+    hasLoaded: bool
 
   Plugins* = object
     plugins: Table[string, Plugin]
+
+# we shouldn't call any functions until we are loaded
 
 iterator items*(ps: Plugins): (string, Plugin) =
   for k in ps.plugins.keys:
@@ -80,8 +83,13 @@ proc doStage*(self: var Plugins, stage: PluginStage, activeScene: Option[
         s: var GameState) =
   for id in self.plugins.keys:
     var plug = self.plugins[id]
+
     if plug.isScene and id != activeScene.get(""):
       continue
+
+    if plug.isScene and not plug.hasLoaded:
+      continue
+
     for (pluginStage, fn) in plug.fs:
       if pluginStage == stage:
         call(fn, e, a, c, s)
@@ -90,7 +98,12 @@ proc load*(self: var Plugins, id: string, e: var Events, a: var Artist,
     c: var Commands, s: var GameState) =
   if not self.plugins.hasKey(id):
     return
-  for (stage, fn) in self.plugins[id].fs:
+
+  var plugin = self.plugins[id]
+  plugin.hasLoaded = true
+  self.plugins[id] = plugin
+
+  for (stage, fn) in plugin.fs:
     if stage == load:
       info("Loading: " & id)
       call(fn, e, a, c, s)
@@ -140,16 +153,19 @@ template plugin*(ps: var Plugins, id: string, lod: untyped): var Plugins =
 
 template scene*(ps: var Plugins, id: string, lod: untyped, upd: untyped,
     drw: untyped): var Plugins =
-  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true))
+  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true,
+      hasLoaded: false))
   ps.add(id, load, lod)
     .add(id, update, upd)
     .add(id, draw, drw)
 
 template scene*(ps: var Plugins, id: string, lod: untyped,
     upd: untyped): var Plugins =
-  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true))
+  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true,
+      hasLoaded: false))
   ps.add(id, load, lod).add(id, update, upd)
 
 template scene*(ps: var Plugins, id: string, lod: untyped): var Plugins =
-  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true))
+  discard ps.plugins.hasKeyOrPut(id, Plugin(fs: @[], isScene: true,
+      hasLoaded: false))
   ps.add(id, load, lod)

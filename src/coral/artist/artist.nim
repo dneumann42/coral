@@ -30,6 +30,12 @@ var containerSize = vec2()
 proc tup*(v: Vec2): (float32, float32) = (v.x, v.y)
 proc tup*(v: Vec3): (float32, float32, float32) = (v.x, v.y, v.z)
 
+proc `cameraPosition=`*(artist: var Artist, pos: Vec2) =
+  artist.camera.position = pos
+
+proc cameraPosition*(artist: Artist): Vec2 =
+  artist.camera.position
+
 proc screenWidth*(): int =
   let (w, _) = windowSize()
   w
@@ -62,7 +68,7 @@ proc atlas*(artist: Artist): Atlas =
 
 proc loadAtlas*(artist: var Artist, atlasPath: string) =
   artist.atlas = "res/textures".loadConfig().createAtlasData(@[])
-  writeFile(atlasPath / "atlas.json",  artist.atlas.toJson())
+  writeFile(atlasPath / "atlas.json", artist.atlas.toJson())
 
 proc size*(layer: Layer): Vec2 =
   let (x, y) = layer.target.size()
@@ -92,10 +98,11 @@ template layer*(artist: var Artist, depth: int, body: untyped) =
 
 template cameraLayer*(artist: var Artist, depth: int, body: untyped) =
   let layer = artist.getOrCreateLayer(depth)
-  startCanvas(layer.target, true)
+  startCanvas(layer.target)
   containerSize = layer.size()
-  artist.camera.withCamera() do:
-    body
+  setCamera(artist.camera)
+  body
+  unsetCamera()
   endCanvas()
 
 proc paint*(artist: var Artist) =

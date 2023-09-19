@@ -174,6 +174,13 @@ proc rect*(
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.rect(x, y, w, h, origin, rotation, color)
 
+proc linerect*(
+  x, y, w, h: SomeNumber,
+  origin = vec2(),
+  rotation = 0.0,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  ren.linerect(x, y, w, h, origin, rotation, color)
+
 proc circle*(
   x, y: SomeNumber,
   radius: SomeNumber,

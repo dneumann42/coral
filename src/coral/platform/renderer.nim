@@ -1,14 +1,21 @@
-import sdl2, vmath, chroma, tables
+import sdl2, vmath, chroma, tables, cascade
 import sdl2/[gfx, image, ttf]
 import std/[logging, md5]
-import resources, state
+import fusion/matching
+import resources, state, options
 
 type
   Rectangle* = tuple[x, y, w, h: float]
   Renderer* = object
     texts: Table[string, TexturePtr]
   Camera* = object
+    position*, origin*: Vec2
+    rotation*: float
+    zoom* = 1.0
+
   Canvas* = TexturePtr
+
+var activeCamera: Option[Camera]
 
 proc toSDLRect(r: Rectangle): Rect =
   rect(r.x.cint, r.y.cint, r.w.cint, r.h.cint)
@@ -26,6 +33,25 @@ proc size*(tex: TexturePtr): (int, int) =
   tex.queryTexture(nil, nil, w.addr, h.addr)
   (w.int, h.int)
 
+# proc setCameraPosition*(pos: Vec2) =
+#   if Some(@cam) ?= activeCamera:
+#     activeCamera = some(
+#       cascade(cam) do:
+#       position = pos
+#     )
+
+# proc getCameraPosition*(): Vec2 =
+#   if Some(@cam) ?= activeCamera:
+#     cam.position
+#   else:
+#     vec2()
+
+proc setCamera*(camera: Camera) =
+  activeCamera = some(camera)
+
+proc unsetCamera*() =
+  activeCamera = none(Camera)
+
 template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0),
     blk: untyped) =
   var last: ColorRGBA
@@ -42,6 +68,12 @@ proc beginDrawing*(ren: Renderer) =
 proc endDrawing*(ren: Renderer) =
   getRenderer().present()
 
+proc offset*(): Vec2 =
+  if Some(@cam) ?= activeCamera:
+    -cam.position
+  else:
+    vec2()
+
 proc rect*(
   ren: Renderer,
   x, y,
@@ -50,11 +82,27 @@ proc rect*(
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.pushColor(color):
+    let off = offset()
     var r = rect(
-      cint(x), cint(y),
+      cint(x + off.x), cint(y + off.y),
       cint(w), cint(h)
     )
     getRenderer().fillRect(r)
+
+proc linerect*(
+  ren: Renderer,
+  x, y,
+  w, h: SomeNumber,
+  origin = vec2(),
+  rotation = 0.0,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  ren.pushColor(color):
+    let off = offset()
+    var r = rect(
+      cint(x + off.x), cint(y + off.y),
+      cint(w), cint(h)
+    )
+    getRenderer().drawRect(r)
 
 proc circle*(
   ren: Renderer,
@@ -62,8 +110,9 @@ proc circle*(
   radius: SomeNumber,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   let c = color.rgba
+  let off = offset()
   getRenderer().filledCircleRGBA(
-    int16(x), int16(y), int16(radius),
+    int16(x + off.x), int16(y + off.y), int16(radius),
     c.r, c.g, c.b, c.a)
 
 proc measureString*(font: Font, text: string): Vec2 =
@@ -92,8 +141,9 @@ proc text*(
       tex
 
   var (w, h) = texture.size()
+  let off = offset()
 
-  var d = (x.float, y.float, w.float, h.float).toSDLRect()
+  var d = (x.float + off.x, y.float + off.y, w.float, h.float).toSDLRect()
   var p = point(0, 0)
 
   getRenderer().copyEx(
@@ -113,14 +163,18 @@ proc texture*(
   origin = vec2(),
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
+  let off = offset()
   var s = src.toSDLRect()
   var d = dst.toSDLRect()
+  d.x += off.x.cint
+  d.y += off.y.cint
   var p = point(0, 0)
-  getRenderer().copyEx(
-    tex.texPtr,
-    s.addr,
-    d.addr,
-    rotation,
-    p.addr,
-    0
-  )
+  ren.pushColor(color):
+    getRenderer().copyEx(
+      tex.texPtr,
+      s.addr,
+      d.addr,
+      rotation,
+      p.addr,
+      0
+    )

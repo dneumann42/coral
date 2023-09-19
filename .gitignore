@@ -3,3 +3,4 @@ nimblecache/
 htmldocs/
 
 tests/test1
+*.log
