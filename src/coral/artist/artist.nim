@@ -1,4 +1,5 @@
-import algorithm, sequtils, sugar, vmath, chroma, os, jsony
+import algorithm, sequtils, sugar, vmath, chroma, os, jsony, tables
+import std/logging
 
 import ../platform/application
 import ../platform/renderer
@@ -36,13 +37,17 @@ proc `cameraPosition=`*(artist: var Artist, pos: Vec2) =
 proc cameraPosition*(artist: Artist): Vec2 =
   artist.camera.position
 
+proc `cameraZoom=`*(artist: var Artist, zoom: float) =
+  artist.camera.zoom = zoom
+
+proc cameraZoom*(artist: Artist): float =
+  artist.camera.zoom
+
 proc screenWidth*(): int =
-  let (w, _) = windowSize()
-  w
+  windowSize().x.int
 
 proc screenHeight*(): int =
-  let (_, h) = windowSize()
-  h
+  windowSize().y.int
 
 proc layerWidth*(): int =
   containerSize.x.int
@@ -67,8 +72,16 @@ proc atlas*(artist: Artist): Atlas =
   artist.atlas
 
 proc loadAtlas*(artist: var Artist, atlasPath: string) =
-  artist.atlas = "res/textures".loadConfig().createAtlasData(@[])
+  artist.atlas = "res/textures".loadConfig().createAtlasData()
   writeFile(atlasPath / "atlas.json", artist.atlas.toJson())
+
+proc spriteRegion*(artist: var Artist, spriteId: string): Rectangle =
+  if artist.atlas.sprites.hasKey(spriteId):
+    var spr = artist.atlas.sprites[spriteId]
+    (spr.x, spr.y, spr.w, spr.h)
+  else:
+    error("Sprite not found: " & spriteId)
+    (0.0, 0.0, 0.0, 0.0)
 
 proc size*(layer: Layer): Vec2 =
   let (x, y) = layer.target.size()
@@ -81,6 +94,10 @@ proc circle*(x, y: SomeNumber, r = 32.0, color = color(1.0, 1.0, 1.0, 1.0)) =
 proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
   application.rect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
+
+proc linerect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
+    rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
+  application.linerect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
 
 proc getOrCreateLayer*(artist: var Artist, depth: int, camera = false): Layer =
   for layer in artist.layers:

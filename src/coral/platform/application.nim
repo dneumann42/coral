@@ -72,13 +72,6 @@ proc initializeWindow*(title = "Window") =
   ren = Renderer.init()
   res = Resources.init()
 
-proc windowSize*(): (int, int) =
-  var
-    w: cint = 0
-    h: cint = 0
-  getWindow().getSize(w, h)
-  (w.int, h.int)
-
 proc isDown*(key: KeyboardKey): bool =
   if inputs.hasKey(key):
     inputs[key]

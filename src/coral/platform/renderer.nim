@@ -17,14 +17,19 @@ type
 
 var activeCamera: Option[Camera]
 
-proc toSDLRect(r: Rectangle): Rect =
+proc toSDLRect*(r: Rectangle): Rect =
   rect(r.x.cint, r.y.cint, r.w.cint, r.h.cint)
+
+proc windowSize*(): Vec2 =
+  var w, h: cint
+  getWindow().getSize(w, h)
+  result = vec2(w.float, h.float)
 
 proc init*(T: type Renderer): T =
   T(texts: initTable[string, TexturePtr]())
 
 proc init*(T: type Canvas, width, height: SomeInteger): T =
-  getRenderer().createTexture(
+  result = getRenderer().createTexture(
     SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width.int32, height.int32
   )
 
@@ -32,19 +37,6 @@ proc size*(tex: TexturePtr): (int, int) =
   var w, h: cint
   tex.queryTexture(nil, nil, w.addr, h.addr)
   (w.int, h.int)
-
-# proc setCameraPosition*(pos: Vec2) =
-#   if Some(@cam) ?= activeCamera:
-#     activeCamera = some(
-#       cascade(cam) do:
-#       position = pos
-#     )
-
-# proc getCameraPosition*(): Vec2 =
-#   if Some(@cam) ?= activeCamera:
-#     cam.position
-#   else:
-#     vec2()
 
 proc setCamera*(camera: Camera) =
   activeCamera = some(camera)
@@ -68,11 +60,21 @@ proc beginDrawing*(ren: Renderer) =
 proc endDrawing*(ren: Renderer) =
   getRenderer().present()
 
-proc offset*(): Vec2 =
+proc offsetZoom*(pos: Vec2): (Vec2, float) =
+  let sz = renderer.windowSize()
   if Some(@cam) ?= activeCamera:
-    -cam.position
+    ((pos - cam.position) * cam.zoom + sz / 2.0, cam.zoom)
   else:
-    vec2()
+    (pos, 1.0)
+
+proc getTransformedRect(x, y, w, h: SomeNumber): Rect =
+  var (pos, zoom) = offsetZoom(vec2(x.float, y.float))
+  rect(
+    cint(pos.x), 
+    cint(pos.y),
+    cint(w.float * zoom),
+    cint(h.float * zoom)
+  )
 
 proc rect*(
   ren: Renderer,
@@ -82,11 +84,7 @@ proc rect*(
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.pushColor(color):
-    let off = offset()
-    var r = rect(
-      cint(x + off.x), cint(y + off.y),
-      cint(w), cint(h)
-    )
+    var r = getTransformedRect(x, y, w, h)
     getRenderer().fillRect(r)
 
 proc linerect*(
@@ -97,11 +95,7 @@ proc linerect*(
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.pushColor(color):
-    let off = offset()
-    var r = rect(
-      cint(x + off.x), cint(y + off.y),
-      cint(w), cint(h)
-    )
+    var r = getTransformedRect(x, y, w, h)
     getRenderer().drawRect(r)
 
 proc circle*(
@@ -110,9 +104,9 @@ proc circle*(
   radius: SomeNumber,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   let c = color.rgba
-  let off = offset()
+  let (pos, zoom) = offsetZoom(vec2(x.float, y.float))
   getRenderer().filledCircleRGBA(
-    int16(x + off.x), int16(y + off.y), int16(radius),
+    int16(pos.x), int16(pos.y), int16(radius * zoom),
     c.r, c.g, c.b, c.a)
 
 proc measureString*(font: Font, text: string): Vec2 =
@@ -141,9 +135,9 @@ proc text*(
       tex
 
   var (w, h) = texture.size()
-  let off = offset()
+  let (pos, _) = offsetZoom(vec2(x.float, y.float))
 
-  var d = (x.float + off.x, y.float + off.y, w.float, h.float).toSDLRect()
+  var d = (pos.x.float, pos.y.float, w.float, h.float).toSDLRect()
   var p = point(0, 0)
 
   getRenderer().copyEx(
@@ -163,11 +157,16 @@ proc texture*(
   origin = vec2(),
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
-  let off = offset()
   var s = src.toSDLRect()
   var d = dst.toSDLRect()
-  d.x += off.x.cint
-  d.y += off.y.cint
+
+  let (pos, zoom) = offsetZoom(vec2(d.x.float, d.y.float))
+
+  d.x = pos.x.cint
+  d.y = pos.y.cint
+  d.w = (d.w.float * zoom).int32
+  d.h = (d.h.float * zoom).int32
+
   var p = point(0, 0)
   ren.pushColor(color):
     getRenderer().copyEx(

@@ -1,8 +1,11 @@
 import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
-    strutils, sets
+    strutils, sets, sdl2, sdl2/image
 import std/[paths, re]
 import std/md5
 import ../platform/resources
+import ../platform/renderer
+import ../platform/application
+import ../platform/state
 
 type
   Image = object
@@ -11,9 +14,10 @@ type
     images*: seq[string]
     hashes: Table[string, string]
 
-  Rect = object
-    id: string
-    x, y, w, h: float
+  Sprite = object
+    id*: string
+    x*, y*, w*, h*: float
+
   Region = object
     x, y, w, h: float
   OutRect* = object
@@ -27,7 +31,7 @@ type
     images*: seq[OutImage]
   Atlas* = object
     config*: Config
-    sprites*: Table[string, OutRect]
+    sprites*: Table[string, Sprite]
     imageGroups*: Table[string, ImageGroup]
 
 proc equals(a, b: Table[string, string]): bool =
@@ -36,14 +40,10 @@ proc equals(a, b: Table[string, string]): bool =
     if a[k] != b[k]:
       return false
 
-proc initRect(id: string, x, y, w, h: float): Rect =
-  result.id = id
-  result.x = x
-  result.y = y
-  result.w = w
-  result.h = h
+proc init(T: type Sprite, id: string, x, y, w, h: float): T =
+  T(id: id, x: x, y: y, w: w, h: h)
 
-proc toOutRect(r: Rect): OutRect =
+proc toOutRect(r: Sprite): OutRect =
   result.id = r.id
   result.region = Region(x: r.x, y: r.y, w: r.w, h: r.h)
 
@@ -57,8 +57,8 @@ proc load*(T: type Config, path: string): Config =
   result = readFile(path).parseJson().to(Config)
   result.dir = path.basename
 
-proc allSpritesInFolder*(config: Config, dir: Path, exts = DefaultExts): seq[string] =
-  for file in walkDirRec(dir.string):
+proc allSpritesInFolder*(config: Config, exts = DefaultExts): seq[string] =
+  for file in walkDirRec(config.dir.string):
     if config.images.contains(file.basename.lastPathPart):
       continue
     if file.substr(searchExtPos(file), len(file)) in exts:
@@ -74,48 +74,78 @@ proc getId(path: string): string =
   let fn = extractFilename(path)
   result = fn.substr(0, searchExtPos(fn)-1)
 
-proc generateAtlas(config: Config, path: string): tuple[target: Image,
-    rects: seq[Rect]] =
-  discard
-  # result.target = genImageColor(512, 512, Color(r: 0, g: 0, b: 0, a: 0))
-  # result.rects = newSeq[Rect]()
+proc generateSpritesheet*(config: Config): seq[Sprite] =
+  result = @[]
 
-  # var images = newTable[string, Image]()
+  var canvas = Canvas.init(512, 512)
+  defer: canvas.destroyTexture()
 
-  # for path in config.allSpritesInFolder(path):
-  #   let id = getId(path)
-  #   let img = loadImage(path)
-  #   result.rects.add(initRect(id, 0.0, 0.0, img.width.float, img.height.float))
-  #   images[id] = imageCopy(img)
+  startCanvas(canvas)
 
-  # result.rects.sort (a, b: Rect) => cmp(b.h, a.h)
+  var textures = initTable[string, TexturePtr]()
+  for imagePath in config.allSpritesInFolder():
+    if imagePath.endsWith("atlas.png") or imagePath.endsWith("out.png"):
+      continue
+    let img = getRenderer().loadTexture(imagePath)
+    var w, h: cint
+    queryTexture(img, nil, nil, w.addr, h.addr)
+    textures[imagePath.getId()] = getRenderer().loadTexture(imagePath)
+    result.add(Sprite.init(imagePath.getId(), 0.0, 0.0, w.float, h.float))
 
-  # var x, y, maxHeight = 0.0
-  # for r in result.rects.mitems:
-  #   if x + r.w > result.target.width.float:
-  #     y += maxHeight
-  #     x = 0.0
-  #     maxHeight = 0.0
+  result.sort (a, b: Sprite) => cmp(b.h, a.h)
 
-  #   if y + r.h > result.target.height.float:
-  #     break
+  var x, y, maxHeight = 0.0
+  for r in result.mitems:
+    if x + r.w > 512:
+      y += maxHeight
+      x = 0.0
+      maxHeight = 0.0
 
-  #   r.x = x
-  #   r.y = y
-  #   x += r.w
-  #   maxHeight = max(r.h, maxHeight)
+    if y + r.h > 512:
+      break
 
-  # for r in result.rects:
-  #   let
-  #     img = images[r.id]
-  #     sr = Rectangle(x: 0, y: 0, width: img.width.float32,
-  #         height: img.height.float32)
-  #     dr = Rectangle(x: r.x, y: r.y, width: img.width.float32,
-  #         height: img.height.float32)
-  #   imageDraw(result.target, img, sr, dr, White)
+    r.x = x
+    r.y = y
+    x += r.w
+    maxHeight = max(r.h, maxHeight)
 
-proc createAtlasData*(config: Config, rects: seq[
-    Rect]): Atlas =
+  for r in result:
+    let tex = textures[r.id]
+    var tw, th: cint
+
+    queryTexture(tex, nil, nil, tw.addr, th.addr)
+
+    let
+      sr: Rectangle = (0.0, 0.0, tw.float, th.float)
+      dr: Rectangle = (r.x, r.y, tw.float, th.float)
+
+    texture(tex, sr, dr)
+
+  var w, h: cint
+  queryTexture(canvas, nil, nil, w.addr, h.addr)
+
+  var
+    rmask = 0xff000000.uint32
+    gmask = 0x00ff0000.uint32
+    bmask = 0x0000ff00.uint32
+    amask = 0x000000ff.uint32
+
+  var surface = createRGBSurface(0, w, h, 32, rmask, gmask, bmask, amask)
+  var rec = (0.0, 0.0, 0.0, 0.0).toSDLRect
+
+  discard getRenderer().readPixels(nil, surface.format.format.cint,
+      surface.pixels, surface.pitch)
+
+  discard savePNG(surface, "res" / "textures" / "out.png")
+
+  for tex in textures.values:
+    destroyTexture(tex)
+
+  endCanvas()
+
+proc createAtlasData*(config: Config): Atlas =
+  var sprites = config.generateSpritesheet()
+
   var groups: seq[tuple[id: string, path: string]] = @[]
 
   for item in walkDir(config.dir):
@@ -127,6 +157,10 @@ proc createAtlasData*(config: Config, rects: seq[
         break
 
   result = Atlas()
+
+  for sprite in sprites:
+    result.sprites[sprite.id] = sprite
+
   for (id, path) in groups:
     var imgGroup = ImageGroup(id: id, images: @[])
     for item in walkDir(path):
@@ -137,7 +171,7 @@ proc createAtlasData*(config: Config, rects: seq[
     result.imageGroups[id] = imgGroup
 
 proc updateHashes*(config: var Config): bool =
-  for path in config.allSpritesInFolder(config.dir.Path):
+  for path in config.allSpritesInFolder():
     let contents = readFile(path)
     let hash = contents.toMD5
     let id = path.extractFilename()
@@ -153,6 +187,7 @@ proc loadConfig*(atlasDir: string): Config =
 proc start(imagesDir, outDir: string, name = "atlas", format = "png",
     prettify = false) =
   var config = imagesDir.loadConfig()
+  var rects = config.generateSpritesheet()
 
   # if not fileExists(imagesDir.string / &"{name}.{format}") or
   #     config.updateHashes():
