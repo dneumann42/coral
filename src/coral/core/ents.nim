@@ -1,6 +1,6 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
     vmath, strutils
-import tools, jsony
+import typeids, jsony
 import strformat
 
 type
@@ -52,10 +52,10 @@ proc get*[T](buff: CompBuff[T], idx: int): T =
 proc mget*[T](buff: var CompBuff[T], idx: int): ptr T =
   result = buff.components[idx].addr
 
-proc initEnts*(): Ents =
-  result.entities = @[]
-  result.compBuffs = initTable[TypeId, AbstractCompBuff]()
-  result.compNames = initTable[TypeId, string]()
+proc init*(T: type Ents): T =
+  T(entities: @[],
+    compBuffs: initTable[TypeId, AbstractCompBuff](),
+    compNames: initTable[TypeId, string]())
 
 proc spawn*(ents: var Ents): EntId =
   result = ents.entities.len()
@@ -167,7 +167,7 @@ proc save*(ents: Ents, comp: (abs: AbstractCompBuff) ->
 
 proc load*(code: string, comp: (node: JsonNode) -> AbstractCompBuff): Ents =
   let js = code.parseJson()
-  result = initEnts()
+  result = Ents.init()
 
   for ent in js["entities"]:
     var ts = initTable[TypeId, int]()
@@ -193,7 +193,7 @@ when isMainModule:
     [es.get(id, A), es.get(id, B), es.get(id, C)]
 
   var
-    es = initEnts()
+    es = Ents.init()
     id = es.spawn()
 
   es.add(id).a(A()).a(B()).a(C())
