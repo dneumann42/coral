@@ -194,8 +194,10 @@ type
   PluginFunction = tuple[stage: PluginStage, fn: Function]
   Plugin = object
     fs: seq[PluginFunction]
-    isScene: bool
-    hasLoaded: bool
+    isScene = false
+    hasLoaded = false
+    # when not empty, will be active only when scene in seq is active
+    activeOnScenes: seq[string] = @[]
 
   Plugins* = ref object
     plugins: Table[string, Plugin]
@@ -221,6 +223,11 @@ macro generateAdds() =
   
 generateAdds()
 
+# Plugin will only be active when scenes are active
+proc activeOnScene*(plugins: Plugins, pluginId: string, scenes: varargs[string]) =
+  for id in scenes:
+    plugins.plugins[pluginId].activeOnScenes.add(id)
+
 iterator items*(ps: Plugins): (string, Plugin) =
   for k in ps.plugins.keys:
     yield (k, ps.plugins[k])
@@ -230,13 +237,31 @@ proc isScene*(p: Plugin): bool = p.isScene
 func init*(T: type Plugins): T =
   T(plugins: initTable[string, Plugin]())
 
+proc isActive(self: Plugins, activeScene: Option[string], id: string): bool =
+  let plug = self.plugins[id]
+
+  if plug.isScene:
+    return id == activeScene.get("")
+
+  if plug.activeOnScenes.len > 0:
+    var active = false 
+    for sc in plug.activeOnScenes:
+      if self.plugins[sc].isScene and sc == activeScene.get(""):
+        active = true
+        break
+
+    if not active:
+      return false
+
+  return true
+
 proc doStage*(self: Plugins, stage: PluginStage, activeScene: Option[
     string], e: var Events, a: var Artist, c: var Commands,
         s: var GameState, n: var Ents) =
   for id in self.plugins.keys:
     var plug = self.plugins[id]
 
-    if plug.isScene and id != activeScene.get(""):
+    if not self.isActive(activeScene, id):
       continue
 
     if plug.isScene and not plug.hasLoaded:
