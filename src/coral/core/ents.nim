@@ -25,7 +25,7 @@ type
 proc ent*(): Ent =
   result.comps = initTable[TypeId, int]()
 
-iterator entities*(ents: Ents): EntId =
+iterator entities*(ents: var Ents): EntId =
   for ent in ents.entities.items:
     yield ent.id
 

@@ -66,7 +66,7 @@ func outExpo*[T] (t, b, d, e: T): T =
     else: d * 1.001 * (-pow(2, -10*t / e) + 1) + b
 
 func inOutExpo*[T] (t, b, d, e: T): T =
-  if t == 0: return b
+  if t == 0: return
   if t == e: return b + d
   let t2 = t / 2 * 2
   if t2 < 1: return d * 0.5 * pow(2, 10 * (t - 1)) + b - d * 0.0005

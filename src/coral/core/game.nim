@@ -8,9 +8,7 @@ type
   Game* = object
     shouldExit: bool
     startingScene: string
-
     title: string
-
     state: GameState
     ents: Ents
     events: Events

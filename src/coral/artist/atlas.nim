@@ -136,7 +136,7 @@ proc generateSpritesheet*(config: Config): seq[Sprite] =
   discard getRenderer().readPixels(nil, surface.format.format.cint,
       surface.pixels, surface.pitch)
 
-  discard savePNG(surface, "res" / "textures" / "out.png")
+  discard savePNG(surface, "res" / "textures" / "atlas.png")
 
   for tex in textures.values:
     destroyTexture(tex)
@@ -170,6 +170,15 @@ proc createAtlasData*(config: Config): Atlas =
       imgGroup.images.add(OutImage(id: &"{id}-{imgId}", path: item.path))
     result.imageGroups[id] = imgGroup
 
+iterator sprites*(atlas: Atlas): tuple[id: string, region: Rectangle] =
+  for spriteId in atlas.sprites.keys:
+    let spr = atlas.sprites[spriteId]
+    yield (spriteId, (spr.x, spr.y, spr.w, spr.h))
+
+proc getSpriteRegion*(atlas: Atlas, id: string): Rectangle =
+  let spr = atlas.sprites[id]
+  (spr.x, spr.y, spr.w, spr.h)
+
 proc updateHashes*(config: var Config): bool =
   for path in config.allSpritesInFolder():
     let contents = readFile(path)
@@ -188,13 +197,6 @@ proc start(imagesDir, outDir: string, name = "atlas", format = "png",
     prettify = false) =
   var config = imagesDir.loadConfig()
   var rects = config.generateSpritesheet()
-
-  # if not fileExists(imagesDir.string / &"{name}.{format}") or
-  #     config.updateHashes():
-  #   let (atlas, rects) = config.generateAtlas(imagesDir)
-  #   let atlasData = config.createAtlasData(imagesDir, rects)
-  #   writeFile(outDir.string / &"{name}.json", atlasData.pretty)
-  #   discard exportImage(atlas, (outDir.string / &"{name}.{format}").cstring)
 
   writeFile(imagesDir.string / "config.json", ( % config).pretty)
 

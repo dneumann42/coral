@@ -135,6 +135,7 @@ proc endDrawing() =
 
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
+  canvas.setTextureBlendMode(BLENDMODE_BLEND)
   ren.pushColor(color(0.0, 0.0, 0.0, 0.0)):
     getRenderer().clear()
 

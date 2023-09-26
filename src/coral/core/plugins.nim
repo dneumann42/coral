@@ -83,9 +83,6 @@ macro generateSomeFunc() =
   res.add(sec)
   res
 
-generateFunctionTypes()
-generateSomeFunc()
-
 macro generateEnum() =
   newEnum(
     name = ident("FunKind"),
@@ -105,7 +102,7 @@ macro generateObject() =
   nnkStmtList.newTree(
     nnkTypeSection.newTree(
       nnkTypeDef.newTree(
-        newIdentNode("Function"),
+        ident("Function"),
         newEmptyNode(),
         nnkObjectTy.newTree(
           newEmptyNode(),
@@ -143,21 +140,19 @@ macro generateCall*() =
   var params = nnkFormalParams.newTree(
     newEmptyNode(),
     nnkIdentDefs.newTree(
-      newIdentNode("fn"),
-      newIdentNode("Function"),
+      ident("fn"),
+      ident("Function"),
       newEmptyNode()))
 
   for k, v in typeTable:
     params.add(
       nnkIdentDefs.newTree(
-        newIdentNode(k),
+        ident(k),
         nnkVarTy.newTree(v),
         newEmptyNode()))
 
   var cas = nnkCaseStmt.newTree(
-    nnkDotExpr.newTree(
-      newIdentNode("fn"),
-      newIdentNode("kind")))
+    nnkDotExpr.newTree(ident("fn"), ident("kind")))
 
   for f in FUNCTION_NAMES:
     let id = (f[0] & (f[2..<f.len])).toLowerAscii
@@ -179,14 +174,11 @@ macro generateCall*() =
   nnkStmtList.newTree(
     nnkProcDef.newTree(
       nnkPostfix.newTree(newIdentNode("*"), newIdentNode("call")),
-      newEmptyNode(),
-      newEmptyNode(),
-      params,
-      newEmptyNode(),
-      newEmptyNode(),
+      newEmptyNode(), newEmptyNode(), params, newEmptyNode(), newEmptyNode(),
       nnkStmtList.newTree(cas)))
 
-
+generateFunctionTypes()
+generateSomeFunc()
 generateEnum()
 generateObject()
 generateConstructor()
@@ -221,20 +213,11 @@ type PluginAdd = ref object
 macro generateAdds() =
   result = nnkStmtList.newTree()
   for f in FUNCTION_NAMES:
-    result.add nnkProcDef.newTree(
-      nnkPostfix.newTree(ident("*"), ident("add")),
-      newEmptyNode(),
-      newEmptyNode(),
-      nnkFormalParams.newTree(
-        ident("Plugins"),
-        nnkIdentDefs.newTree(ident("ps"), ident("Plugins"), newEmptyNode()),
-        nnkIdentDefs.newTree(ident("id"), ident("string"), newEmptyNode()),
-        nnkIdentDefs.newTree(ident("stage"), ident("PluginStage"), newEmptyNode()),
-        nnkIdentDefs.newTree(ident("f"), ident(f), newEmptyNode())),
-      nnkPragma.newTree(ident("discardable")),
-      newEmptyNode(),
-      nnkStmtList.newTree(
-        nnkCall.newTree(ident("impl"), ident("ps"), ident("id"), ident("stage"), ident("f"))))
+    let id = ident(f)
+    result.add(
+      quote do:
+        proc add*(ps: Plugins, id: string, stage: PluginStage, fun: `id`): Plugins {.discardable.} =
+          ps.impl(id, stage, fun))
   
 generateAdds()
 

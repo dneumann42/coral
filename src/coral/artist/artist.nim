@@ -1,4 +1,4 @@
-import algorithm, sequtils, sugar, vmath, chroma, os, jsony, tables
+import algorithm, sequtils, sugar, vmath, chroma, os, jsony, json, tables
 import std/logging
 
 import ../platform/application
@@ -73,7 +73,7 @@ proc atlas*(artist: Artist): Atlas =
 
 proc loadAtlas*(artist: var Artist, atlasPath: string) =
   artist.atlas = "res/textures".loadConfig().createAtlasData()
-  writeFile(atlasPath / "atlas.json", artist.atlas.toJson())
+  writeFile(atlasPath / "atlas.json", artist.atlas.toJson().parseJson().pretty)
 
 proc spriteRegion*(artist: var Artist, spriteId: string): Rectangle =
   if artist.atlas.sprites.hasKey(spriteId):
