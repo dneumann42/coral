@@ -3,7 +3,6 @@ import scenes, events
 
 variantp Command:
   Scene(change: SceneChange)
-  Emit(event: Event)
   SaveProfile
   Exit
 
@@ -35,8 +34,4 @@ proc saveProfile*(self: var Commands): var Commands {.discardable.} =
 
 proc exit*(self: var Commands): var Commands {.discardable.} =
   self.stack.add Exit()
-  self
-
-proc emit*[T](self: var Commands, state: T): var Commands {.discardable.} =
-  self.stack.add Event(Event.init(name(typedesc(T)), %* state))
   self

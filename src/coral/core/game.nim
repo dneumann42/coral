@@ -44,7 +44,6 @@ proc commandDispatch*(game: var Game; commands: Commands) =
   for cmd in commands:
     match cmd:
       Scene(change): game.scenes.change(change)
-      Emit(event): game.events.emit(event)
       Exit: game.shouldExit = true
       SaveProfile: discard
 
@@ -69,6 +68,8 @@ proc update(game: var Game) =
 
   game.withCommands do (game: var Game; cmd: var Commands):
     game.plugins.update(game.scenes.activeScene(), game.events, game.artist, cmd, game.state, game.ents)
+
+  game.events.flush()
 
 proc draw(game: var Game) =
   game.withCommands do (game: var Game; cmd: var Commands):

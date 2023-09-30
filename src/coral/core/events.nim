@@ -1,23 +1,31 @@
-import options, json
+import options, json, typetraits
 
 type
   EventId = string
+  AbstractEvent* = ref object of RootObj
+    id*: EventId
 
-  Event* = object
-    id: EventId
-    state: Option[JsonNode]
+  Event*[T] = ref object of AbstractEvent
+    state*: T
 
   Events* = object
-    events: seq[Event]
+    stack: seq[AbstractEvent]
 
 func init*(T: type Events): T =
-  T(events: @[])
+  T(stack: @[])
 
-func init*(T: type Event, id: EventId, state = none(JsonNode)): T =
-  T(id: id, state: state)
+proc isKind*(ev: AbstractEvent, t: typedesc): bool =
+  ev.id == name(t)
 
-proc emit*(events: var Events, event: Event) =
-  events.events.add(event)
+proc get*(ev: AbstractEvent, t: typedesc): t =
+  ((Event[t])(ev)).state
 
-proc poll*(events: var Events): seq[Event] =
-  events.events
+proc emit*[T](events: var Events, state: T) =
+  events.stack.add(Event[T](state: state, id: name(T)).AbstractEvent)
+
+proc flush*(events: var Events) =
+  events.stack.setLen(0)
+
+iterator poll*(events: var Events): AbstractEvent =
+  for ev in events.stack:
+    yield ev
