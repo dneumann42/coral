@@ -5,4 +5,5 @@ htmldocs/
 tests/test1
 *.log
 src/coral/core/plugins
+src/coral/core/ents
 src/coral/core/plugins2

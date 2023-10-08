@@ -70,7 +70,7 @@ proc offsetZoom*(pos: Vec2): (Vec2, float) =
 proc getTransformedRect(x, y, w, h: SomeNumber): Rect =
   var (pos, zoom) = offsetZoom(vec2(x.float, y.float))
   rect(
-    cint(pos.x), 
+    cint(pos.x),
     cint(pos.y),
     cint(w.float * zoom),
     cint(h.float * zoom)
@@ -137,7 +137,7 @@ proc text*(
   var (w, h) = texture.size()
   let (pos, _) = offsetZoom(vec2(x.float, y.float))
 
-  var d = (pos.x.float, pos.y.float, w.float, h.float).toSDLRect()
+  var d = (floor(pos.x.float), floor(pos.y.float), w.float, h.float).toSDLRect()
   var p = point(0, 0)
 
   getRenderer().copyEx(
