@@ -206,6 +206,16 @@ proc populate(ents: var Ents, view: View) =
 
   view.valid = true
 
+proc view*(ents: var Ents, ts: openArray[TypeId]): auto =
+  for view in ents.views.mitems:
+    if view.keyMatch(ts):
+      if not view.valid:
+        ents.populate(view)
+      return view
+  result = View.new(ts)
+  ents.populate(result)
+  ents.views.add(result)
+
 proc view*[T: typedesc](ents: var Ents, t: T): auto =
   for view in ents.views.mitems:
     if view.keyMatch([t.getTypeId]):
@@ -215,6 +225,18 @@ proc view*[T: typedesc](ents: var Ents, t: T): auto =
   result = View.new(t.getTypeId)
   ents.populate(result)
   ents.views.add(result)
+
+macro view2(entsIdent: untyped, ts: untyped): untyped =
+  result = nnkStmtList.newTree()
+  var call = nnkCall.newTree(nnkDotExpr.newTree(entsIdent, ident("view")))
+  var brac = nnkBracket.newTree()
+  for x in ts:
+    brac.add(nnkDotExpr.newTree(ident($x), ident("getTypeId")))
+  call.add(brac)
+  result.add(call)
+
+template view(ents: var Ents, xs: openArray[typedesc]): auto =
+  view2(ents, xs)
 
 proc update*(ents: Ents) =
   discard
@@ -262,8 +284,7 @@ proc load*(code: string, comp: (node: JsonNode) -> AbstractCompBuff): Ents =
 
   for key in js["compBuffs"].keys():
     result.compBuffs[parseInt(key)] = comp(
-      js["compBuffs"][key]
-    )
+      js["compBuffs"][key])
 
 when isMainModule:
   {.experimental: "caseStmtMacros".}
@@ -333,6 +354,8 @@ when isMainModule:
       let bes = es.view(B).entities.toSeq()
       let ces = es.view(C).entities.toSeq()
 
+      let aandbs = es.view([A, B]).entities.toSeq()
+
       check(es.has(ae, [A, B, C]) == true)
       check(es.has(be, [A, B]) == true)
       check(es.has(be, C) == false)
@@ -342,3 +365,4 @@ when isMainModule:
       check(aes.len() == 3)
       check(bes.len() == 2)
       check(ces.len() == 1)
+      check(aandbs.len() == 2)
