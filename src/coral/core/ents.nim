@@ -1,6 +1,6 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
-    vmath, strutils, unittest
-import typeids, jsony, sets
+    vmath, strutils, unittest, options, sequtils
+import typeids, jsony, sets, macros
 import strformat
 
 type
@@ -13,11 +13,10 @@ type
     components: seq[T]
     dead: seq[int]
 
-  View* = object
-    # TODO: Test if using a seq is faster, could be for keys since the list should
-    # be relatively small
-    keys: HashSet[string]
-    entities: HashSet[string]
+  View* = ref object
+    valid: bool
+    keys: seq[TypeId]
+    entities: seq[EntId]
 
   Ent = object
     id: EntId
@@ -32,21 +31,18 @@ type
 proc ent*(): Ent =
   result.comps = initTable[TypeId, int]()
 
-proc init(T: type View, keys = initHashSet[string]()): T =
-  T(keys: keys, entities: initHashSet[string]())
-proc init(T: type View, keys: varargs[string]): T = T.init(
-    keys = keys.toHashSet())
-proc init(T: type View, keys: UncheckedArray[string]): T = T.init(
-    keys = keys.toHashSet())
+proc new(T: type View, keys = newSeq[TypeId]()): T = T(keys: keys, entities: @[])
+proc new(T: type View, keys: varargs[TypeId]): T = T.new(@keys)
+proc new(T: type View, keys: UncheckedArray[TypeId]): T = T.new(@keys)
 
-func hasKey*(view: View, key: string): bool =
+func hasKey*(view: View, key: TypeId): bool =
   result = view.keys.contains(key)
 
-iterator keys*(view: View): string =
+iterator keys*(view: View): TypeId =
   for k in view.keys:
     yield k
 
-proc keyMatch(view: View, keys: openArray[string]): bool =
+proc keyMatch(view: View, keys: openArray[TypeId]): bool =
   if view.keys.len != keys.len:
     return false
   result = true
@@ -54,9 +50,12 @@ proc keyMatch(view: View, keys: openArray[string]): bool =
     if not view.hasKey(k):
       return false
 
-iterator entities*(view: View): string =
+iterator entities*(view: View): EntId =
   for ent in view.entities:
-    # TODO: validate each entity is valid before yielding
+    yield ent
+
+iterator items*(view: View): EntId =
+  for ent in view.entities:
     yield ent
 
 iterator entities*(ents: var Ents): EntId =
@@ -96,8 +95,11 @@ proc spawn*(ents: var Ents): EntId =
   result = ents.entities.len()
   ents.entities.add Ent(
     id: result,
-    comps: initTable[TypeId, int]()
-  )
+    comps: initTable[TypeId, int]())
+
+  # TODO: only invalidate the views that match the entities components
+  for view in ents.views:
+    view.valid = false
 
 proc add*[T](ents: var Ents, entId: EntId, comp: T): var Ents {.discardable.} =
   result = ents
@@ -139,6 +141,8 @@ converter toEnts*(entAdd: EntAdd): var Ents =
 proc add*(ents: var Ents, e: EntId): EntAdd {.discardable.} =
   result = EntAdd(ents: ents, id: e)
 
+proc has*(es: Ents, id: EntId, t: TypeId): bool =
+  es.entities[id].comps.hasKey(t)
 proc has*(es: Ents, id: EntId, t: typedesc): bool =
   es.entities[id].comps.hasKey(getTypeId(t))
 
@@ -147,12 +151,20 @@ proc andAll*(vs: varargs[bool]): bool =
   for v in vs:
     result = result and v
 
-macro has*(es, id: untyped, types: openArray[typedesc]): untyped =
+template hasImpl() =
   var ts = nnkCall.newTree(ident("andAll"))
   for t in types:
     ts.add(nnkCall.newTree(
       nnkDotExpr.newTree(es, ident("has")), id, ident($t)))
   result = nnkStmtList.newTree(ts)
+
+macro has*(es, id: untyped, types: openArray[typedesc]): untyped = hasImpl()
+
+proc has*(es: Ents, id: EntId, types: openArray[TypeId]): bool =
+  result = true
+  for t in types:
+    if not es.has(id, t):
+      return false
 
 proc get*[T: typedesc](ents: Ents, entId: EntId, t: T): auto =
   var
@@ -178,15 +190,33 @@ proc mget*[T: typedesc](ents: var Ents, entId: EntId, t: T): auto =
 
 macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
-
   for t in types:
     vs.add(nnkCall.newTree(
         nnkDotExpr.newTree(es, newIdentNode("mget")),
         id, ident($t)))
-
   result = nnkStmtList.newTree(vs)
 
-proc view*[T: typedesc](ents: Ents, entId: EntId, t: T): auto =
+proc populate(ents: var Ents, view: View) =
+  for ent in ents.entities:
+    if view.entities.contains(ent.id):
+      continue
+    var ks = view.keys
+    if ents.has(ent.id, ks):
+      view.entities.add(ent.id)
+
+  view.valid = true
+
+proc view*[T: typedesc](ents: var Ents, t: T): auto =
+  for view in ents.views.mitems:
+    if view.keyMatch([t.getTypeId]):
+      if not view.valid:
+        ents.populate(view)
+      return view
+  result = View.new(t.getTypeId)
+  ents.populate(result)
+  ents.views.add(result)
+
+proc update*(ents: Ents) =
   discard
 
 proc dumpHook(s: var string, k: Table[TypeId, AbstractCompBuff]) =
@@ -241,12 +271,12 @@ when isMainModule:
     value = 3.14
   type B = object
   type C = object
+  type D = object
 
   suite "Adding / Getting and Removing components":
     var
       es = Ents.init()
       id = es.spawn()
-
     es.add(id).a(A()).a(B()).a(C())
 
     test "adding and getting components":
@@ -257,6 +287,7 @@ when isMainModule:
 
     test "getting components and changing values":
       var a = es.mget(id, A)
+      check(es.has(id, [A, B]))
       a.value = 42.0
       check(es.get(id, A).value == 42.0)
 
@@ -264,12 +295,50 @@ when isMainModule:
       a2.value = 32.0
       check(es.get(id, A).value != 32.0)
 
+  suite "Checking for components":
+    var
+      es = Ents.init()
+      id = es.spawn()
+    es.add(id).a(A()).a(B())
+
+    test "checking components":
+      check(getTypeId(A) != getTypeId(B))
+      check(es.has(id, [A, B]))
+      check(es.has(id, A))
+      check(not es.has(id, C))
+      check(es.has(id, getTypeId(A)))
+
   suite "using views to iterate entities and components":
+    var
+      es = Ents.init()
+
+      ae = es.spawn()
+      be = es.spawn()
+      ce = es.spawn()
+
+    es.add(ae).a(A(value: 1.0)).a(B()).a(C())
+    es.add(be).a(A(value: 2.0)).a(B())
+    es.add(ce).a(A(value: 3.0))
+
     test "we can match keys":
-      let view = View.init(name(A), name(B), name(C))
-      check(view.keyMatch(@["A", "B", "C"]))
-      check(not view.keyMatch(@["A", "B"]))
-      check(not view.keyMatch(@["A", "B", "D"]))
+      let view = View.new(getTypeId(A), getTypeId(B), getTypeId(C))
+      check(view.keyMatch([A.getTypeId]) == false)
+      check(view.keyMatch([A.getTypeId, B.getTypeId]) == false)
+      check(view.keyMatch([A.getTypeId, B.getTypeId, C.getTypeId]) == true)
+      check(view.keyMatch([A.getTypeId, B.getTypeId, C.getTypeId,
+          D.getTypeId]) == false)
 
     test "we can iterate entities using views":
-      discard
+      let aes = es.view(A).entities.toSeq()
+      let bes = es.view(B).entities.toSeq()
+      let ces = es.view(C).entities.toSeq()
+
+      check(es.has(ae, [A, B, C]) == true)
+      check(es.has(be, [A, B]) == true)
+      check(es.has(be, C) == false)
+      check(es.has(ce, [A]) == true)
+      check(es.has(be, [B, C]) == false)
+
+      check(aes.len() == 3)
+      check(bes.len() == 2)
+      check(ces.len() == 1)
