@@ -6,10 +6,10 @@ import strformat
 type
   EntId* = int
 
-  AbstractCompBuff* = ref object of RootObj
+  SomeCompBuff* = ref object of RootObj
     name*: string
 
-  CompBuff*[T] = ref object of AbstractCompBuff
+  CompBuff*[T] = ref object of SomeCompBuff
     components: seq[T]
     dead: seq[int]
 
@@ -26,7 +26,7 @@ type
     entities: seq[Ent]
     views: seq[View]
     compNames: Table[TypeId, string]
-    compBuffs: Table[TypeId, AbstractCompBuff]
+    compBuffs: Table[TypeId, SomeCompBuff]
 
 proc ent*(): Ent =
   result.comps = initTable[TypeId, int]()
@@ -88,7 +88,7 @@ proc mget*[T](buff: var CompBuff[T], idx: int): ptr T =
 proc init*(T: type Ents): T =
   T(entities: @[],
     views: @[],
-    compBuffs: initTable[TypeId, AbstractCompBuff](),
+    compBuffs: initTable[TypeId, SomeCompBuff](),
     compNames: initTable[TypeId, string]())
 
 proc spawn*(ents: var Ents): EntId =
@@ -104,15 +104,12 @@ proc spawn*(ents: var Ents): EntId =
 proc add*[T](ents: var Ents, entId: EntId, comp: T): var Ents {.discardable.} =
   result = ents
   let id = getTypeId(T)
-
   if not ents.compBuffs.hasKey(id):
     ents.compBuffs[id] = initCompBuff[T]()
     ents.compNames[id] = name(T)
-
   var
     buff = cast[CompBuff[T]](ents.compBuffs[id])
     idx = buff.add(comp)
-
   ents.entities[entId].comps[name] = idx
 
 type
@@ -235,13 +232,13 @@ macro view2(entsIdent: untyped, ts: untyped): untyped =
   call.add(brac)
   result.add(call)
 
-template view(ents: var Ents, xs: openArray[typedesc]): auto =
+template view*(ents: var Ents, xs: openArray[typedesc]): auto =
   view2(ents, xs)
 
 proc update*(ents: Ents) =
   discard
 
-proc dumpHook(s: var string, k: Table[TypeId, AbstractCompBuff]) =
+proc dumpHook(s: var string, k: Table[TypeId, SomeCompBuff]) =
   s.add("{}")
 
 proc dumpHook(s: var string, ks: Table[TypeId, string]) =
@@ -260,7 +257,7 @@ proc dumpHook(s: var string, ks: Table[TypeId, int]) =
       s.add(", ")
   s.add("}")
 
-proc save*(ents: Ents, comp: (abs: AbstractCompBuff) ->
+proc save*(ents: Ents, comp: (abs: SomeCompBuff) ->
     string): string =
   var js = jsony.toJson(ents).parseJson()
   var buffs = js["compBuffs"]
@@ -269,7 +266,7 @@ proc save*(ents: Ents, comp: (abs: AbstractCompBuff) ->
     buffs.add($k, buffSave.parseJson())
   js.pretty
 
-proc load*(code: string, comp: (node: JsonNode) -> AbstractCompBuff): Ents =
+proc load*(code: string, comp: (node: JsonNode) -> SomeCompBuff): Ents =
   let js = code.parseJson()
   result = Ents.init()
 

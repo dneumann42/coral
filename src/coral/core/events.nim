@@ -2,30 +2,30 @@ import options, json, typetraits
 
 type
   EventId = string
-  AbstractEvent* = ref object of RootObj
+  SomeEvent* = ref object of RootObj
     id*: EventId
 
-  Event*[T] = ref object of AbstractEvent
+  Event*[T] = ref object of SomeEvent
     state*: T
 
   Events* = object
-    stack: seq[AbstractEvent]
+    stack: seq[SomeEvent]
 
 func init*(T: type Events): T =
   T(stack: @[])
 
-proc isKind*(ev: AbstractEvent, t: typedesc): bool =
+proc isKind*(ev: SomeEvent, t: typedesc): bool =
   ev.id == name(t)
 
-proc get*(ev: AbstractEvent, t: typedesc): t =
+proc get*(ev: SomeEvent, t: typedesc): t =
   ((Event[t])(ev)).state
 
 proc emit*[T](events: var Events, state: T) =
-  events.stack.add(Event[T](state: state, id: name(T)).AbstractEvent)
+  events.stack.add(Event[T](state: state, id: name(T)).SomeEvent)
 
 proc flush*(events: var Events) =
   events.stack.setLen(0)
 
-iterator poll*(events: var Events): AbstractEvent =
+iterator poll*(events: var Events): SomeEvent =
   for ev in events.stack:
     yield ev
