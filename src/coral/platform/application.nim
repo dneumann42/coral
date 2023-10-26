@@ -12,6 +12,12 @@ var fileLog = newFileLogger("errors.log", levelThreshold = lvlError)
 addHandler(consoleLog)
 addHandler(fileLog)
 
+var capFps = true
+var targetFPS: uint32 = 60
+var previousTicks: uint64 = 0
+var seconds = 0.0
+var secondsAccum = 0.0
+
 type
   Clock = object
     dt: float
@@ -26,6 +32,7 @@ var
   lastInputs: Table[KeyboardKey, bool]
   prev: uint64
   clock = Clock()
+  frameTicker = 0
 
 proc fps*(): float =
   if clock.dt == 0.0:
@@ -58,6 +65,8 @@ proc initializeWindow*(title = "Window") =
 
   context = getWindow().glCreateContext()
   discard glSetSwapInterval(-1)
+
+  discard setHint("SDL_HINT_RENDER_SCALE_QUALITY", "2")
 
   setRenderer(createRenderer(
     window = getWindow(),
@@ -111,21 +120,28 @@ proc updateWindow*(): bool =
   for key in inputs.keys:
     lastInputs[key] = inputs[key]
 
+  var TPS = getPerformanceFrequency()
+
   clock.ticks = getPerformanceCounter()
-  clock.dt = (clock.ticks - prev).float64 / getPerformanceFrequency().float64
+  clock.dt = (clock.ticks - prev).float64 / TPS.float64
   clock.timer += clock.dt
   prev = clock.ticks
 
-  while pollEvent(event):
-    case event.kind
-    of QuitEvent:
-      return false
-    of KeyDown:
-      inputs[event.key.keysym.scancode.toKeyboardKey] = true
-    of KeyUp:
-      inputs[event.key.keysym.scancode.toKeyboardKey] = false
-    else:
-      discard
+  secondsAccum += clock.dt
+
+  if secondsAccum > 1.0 / targetFPS.float:
+    secondsAccum -= 1.0 / targetFPS.float
+
+    while pollEvent(event):
+      case event.kind
+      of QuitEvent:
+        return false
+      of KeyDown:
+        inputs[event.key.keysym.scancode.toKeyboardKey] = true
+      of KeyUp:
+        inputs[event.key.keysym.scancode.toKeyboardKey] = false
+      else:
+        discard
 
 proc beginDrawing() =
   ren.beginDrawing()

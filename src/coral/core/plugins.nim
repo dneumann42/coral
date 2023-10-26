@@ -184,6 +184,18 @@ generateObject()
 generateConstructor()
 generateCall()
 
+## NOTE: on ordering plugins
+# I would like to have a system where you can say, this plugin runs after, or before
+# this other plugin, this is better then using a number since if you wanted to add a plugin
+# you would need to manually update the priority number
+
+## For now though I will use an OrderedTable.
+
+# variant Ordering:
+#   Default
+#   IsBefore(beforeId: string)
+#   IsAfter(afterId: string)
+
 type
   PluginStage* = enum
     load
@@ -199,8 +211,13 @@ type
     # when not empty, will be active only when scene in seq is active
     activeOnScenes: seq[string] = @[]
 
+  OrderRule = tuple[id: string, isAfter: string, isBefore: string]
+
   Plugins* = ref object
-    plugins: Table[string, Plugin]
+    plugins: OrderedTable[string, Plugin]
+
+var pluginOrderRules: seq[int] = @[]
+# var ordering = 
 
 proc impl(ps: Plugins, id: string, stage: PluginStage, f: SomeFunc): Plugins =
   block:
@@ -235,7 +252,7 @@ iterator items*(ps: Plugins): (string, Plugin) =
 proc isScene*(p: Plugin): bool = p.isScene
 
 func init*(T: type Plugins): T =
-  T(plugins: initTable[string, Plugin]())
+  T(plugins: initOrderedTable[string, Plugin]())
 
 proc isActive(self: Plugins, activeScene: Option[string], id: string): bool =
   let plug = self.plugins[id]

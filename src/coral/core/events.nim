@@ -1,4 +1,4 @@
-import options, json, typetraits
+import options, json, typetraits, sequtils
 
 type
   EventId = string
@@ -27,5 +27,12 @@ proc flush*(events: var Events) =
   events.stack.setLen(0)
 
 iterator poll*(events: var Events): SomeEvent =
-  for ev in events.stack:
+  var evs = events.stack.toSeq()
+  for ev in evs:
     yield ev
+
+proc isEventActive*(events: var Events, t: typedesc): bool =
+  for ev in events.stack:
+    if ev.isKind(t):
+      return true
+
