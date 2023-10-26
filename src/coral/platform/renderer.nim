@@ -18,7 +18,7 @@ type
 var activeCamera: Option[Camera]
 
 proc toSDLRect*(r: Rectangle): Rect =
-  rect(r.x.cint, r.y.cint, r.w.cint, r.h.cint)
+  rect(floor(r.x).cint, floor(r.y).cint, r.w.cint, r.h.cint)
 
 proc windowSize*(): Vec2 =
   var w, h: cint

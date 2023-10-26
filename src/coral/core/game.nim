@@ -79,6 +79,7 @@ proc draw(game: var Game) =
 proc start*(game: var Game) =
   game.load()
   while updateWindow():
-    game.update()
+    if shouldUpdate():
+      game.update()
     withDrawing:
       game.draw()

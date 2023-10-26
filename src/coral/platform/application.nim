@@ -33,6 +33,10 @@ var
   prev: uint64
   clock = Clock()
   frameTicker = 0
+  totalDeltaTime = 0.0
+  totalTicks = 0.0
+  dts: seq[float] = newSeq[float]()
+  avgDt = 0.016
 
 proc fps*(): float =
   if clock.dt == 0.0:
@@ -129,19 +133,22 @@ proc updateWindow*(): bool =
 
   secondsAccum += clock.dt
 
-  if secondsAccum > 1.0 / targetFPS.float:
-    secondsAccum -= 1.0 / targetFPS.float
+  while pollEvent(event):
+    case event.kind
+    of QuitEvent:
+      return false
+    of KeyDown:
+      inputs[event.key.keysym.scancode.toKeyboardKey] = true
+    of KeyUp:
+      inputs[event.key.keysym.scancode.toKeyboardKey] = false
+    else:
+      discard
 
-    while pollEvent(event):
-      case event.kind
-      of QuitEvent:
-        return false
-      of KeyDown:
-        inputs[event.key.keysym.scancode.toKeyboardKey] = true
-      of KeyUp:
-        inputs[event.key.keysym.scancode.toKeyboardKey] = false
-      else:
-        discard
+proc shouldUpdate*(): bool =
+  result = false
+  if secondsAccum >= 1.0 / targetFPS.float:
+    secondsAccum -= 1.0 / targetFPS.float
+    return true
 
 proc beginDrawing() =
   ren.beginDrawing()
