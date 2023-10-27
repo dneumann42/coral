@@ -16,17 +16,14 @@ type GenericGameState[T] = ref object of AbstractGameState
 var shouldSerialize = false
 var states = initTable[string, AbstractGameState]()
 
-proc getState*[T](st: GameState, t: typedesc[T]): T =
+proc mget*[T](st: GameState, t: typedesc[T]): ptr T =
   if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
     states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(
         T)).AbstractGameState
 
-  result = cast[GenericGameState[T]](states[name(t)]).state
+  result = cast[GenericGameState[T]](states[name(t)]).state.addr
 
-proc setState*[T](st: var GameState, state: T) =
-  # if not st.state.hasKey(name(T)) or shouldSerialize:
-  #   st.state[name(T)] = state.toJson()
-
+proc set*[T](st: var GameState, state: T) =
   states[name(T)] = GenericGameState[T](state: state).AbstractGameState
 
 template withState*[T](st: GameState, t: typedesc[T], blk: untyped) =

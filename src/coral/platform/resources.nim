@@ -55,5 +55,16 @@ proc texPtr*(t: Texture): TexturePtr =
 proc fontPtr*(t: Font): FontPtr =
   t.font
 
+proc size*(t: Texture): (float, float) =
+  var w, h: cint
+  queryTexture(t.texPtr, nil, nil, w.addr, h.addr)
+  result = (w.float, h.float)
+
+proc width*(t: Texture): float =
+  result = t.size()[0]
+
+proc height*(t: Texture): float =
+  result = t.size()[1]
+
 proc `delete=`*(tex: Texture) =
   destroyTexture(tex.texture)

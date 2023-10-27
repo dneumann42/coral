@@ -106,6 +106,11 @@ proc isReleased*(key: KeyboardKey): bool =
   else:
     false
 
+proc mousePosition*(): Vec2 =
+  var ix, iy: cint
+  sdl2.getMouseState(ix.addr, iy.addr)
+  result = vec2(ix.float, iy.float)
+
 proc closeWindow*() =
   sdl2.quit()
   if not getWindow().isNil:
@@ -170,12 +175,16 @@ proc loadFont*(path, id: string, size: int) = res.load(Font, path, id, size)
 
 proc loadImage*(path: string) =
   res.load(Texture, path, path.extractFilenameWithoutExt())
-proc loadFont*(path: string, size: int) = 
+proc loadFont*(path: string, size: int) =
   res.load(Font, path, path.extractFilenameWithoutExt(), size)
 
 # TODO: make fontId distinct so accedental assignment is prevented
 proc measureString*(text: string, fontId: string): Vec2 =
   result = res.get(Font, fontId).measureString(text)
+
+proc textureSize*(texId: string): Vec2 =
+  var (w, h) = size(res.get(Texture, texId))
+  result = vec2(w, h)
 
 proc text*(
   tex: string,
@@ -212,6 +221,24 @@ proc texture*(
   rotation = 0.0,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.texture(res.get(Texture, texId), src, dst, origin, rotation, color)
+
+proc texture*(
+  texId: string,
+  pos: Vec2,
+  scale = 1.0,
+  origin = vec2(),
+  rotation = 0.0,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  var tex = res.get(Texture, texId)
+  var (w, h) = tex.size()
+  ren.texture(
+    tex, 
+    (x: 0.0, y: 0.0, w: w, h: h),
+    (x: pos.x.float, y: pos.y.float, w: w * scale, h: h * scale), 
+    origin, 
+    rotation, 
+    color
+  )
 
 proc texture*(
   tex: TexturePtr,
