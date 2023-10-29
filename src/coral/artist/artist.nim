@@ -76,12 +76,7 @@ proc loadAtlas*(artist: var Artist, atlasPath: string) =
   writeFile(atlasPath / "atlas.json", artist.atlas.toJson().parseJson().pretty)
 
 proc spriteRegion*(artist: var Artist, spriteId: string): Rectangle =
-  if artist.atlas.sprites.hasKey(spriteId):
-    var spr = artist.atlas.sprites[spriteId]
-    (spr.x, spr.y, spr.w, spr.h)
-  else:
-    error("Sprite not found: " & spriteId)
-    (0.0, 0.0, 0.0, 0.0)
+  result = artist.atlas.getSpriteRegion(spriteId)
 
 proc size*(layer: Layer): Vec2 =
   let (x, y) = layer.target.size()

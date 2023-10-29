@@ -7,16 +7,27 @@ import ../platform/renderer
 import ../platform/application
 import ../platform/state
 
+const
+  R_MASK = 0xff000000.uint32
+  G_MASK = 0x00ff0000.uint32
+  B_MASK = 0x0000ff00.uint32
+  A_MASK = 0x000000ff.uint32
+
 type
   Image = object
   Config = object
     dir: string
     images*: seq[string]
+    atlases*: seq[string]
     hashes: Table[string, string]
 
   Sprite = object
     id*: string
     x*, y*, w*, h*: float
+
+  SpriteAtlas* = object
+    imageId: string
+    sprites: seq[Sprite]
 
   Region = object
     x, y, w, h: float
@@ -29,10 +40,12 @@ type
   ImageGroup* = object
     id*: string
     images*: seq[OutImage]
+
   Atlas* = object
     config*: Config
     sprites*: Table[string, Sprite]
     imageGroups*: Table[string, ImageGroup]
+    spriteAtlases: seq[SpriteAtlas]
 
 proc equals(a, b: Table[string, string]): bool =
   result = true
@@ -57,9 +70,12 @@ proc load*(T: type Config, path: string): Config =
   result = readFile(path).parseJson().to(Config)
   result.dir = path.basename
 
+# @depricated
 proc allSpritesInFolder*(config: Config, exts = DefaultExts): seq[string] =
   for file in walkDirRec(config.dir.string):
     if config.images.contains(file.basename.lastPathPart):
+      continue
+    if config.atlases.contains(file.basename.lastPathPart):
       continue
     if file.substr(searchExtPos(file), len(file)) in exts:
       result.add(file)
@@ -74,77 +90,71 @@ proc getId(path: string): string =
   let fn = extractFilename(path)
   result = fn.substr(0, searchExtPos(fn)-1)
 
-proc generateSpritesheet*(config: Config): seq[Sprite] =
-  result = @[]
-
-  var canvas = Canvas.init(512, 512)
-  defer: canvas.destroyTexture()
-
-  startCanvas(canvas)
+proc generateSpriteAtlas*(path: string): SpriteAtlas =
+  var imageId = path.extractFilename()
+  result = SpriteAtlas(sprites: @[], imageId: imageId)
 
   var textures = initTable[string, TexturePtr]()
-  for imagePath in config.allSpritesInFolder():
-    if imagePath.endsWith("atlas.png") or imagePath.endsWith("out.png"):
+
+  const W = 512
+  const H = 512
+
+  var canvas = Canvas.init(W, H)
+
+  defer:
+    canvas.destroyTexture()
+
+  defer:
+    for tex in textures.values:
+      destroyTexture(tex)
+
+  for file in walkDirRec(path):
+    if file.substr(searchExtPos(file), len(file)) notin DefaultExts:
       continue
-    let img = getRenderer().loadTexture(imagePath)
-    var w, h: cint
-    queryTexture(img, nil, nil, w.addr, h.addr)
-    textures[imagePath.getId()] = getRenderer().loadTexture(imagePath)
-    result.add(Sprite.init(imagePath.getId(), 0.0, 0.0, w.float, h.float))
+    let img = getRenderer().loadTexture(file)
+    let (w, h) = img.size()
+    var sprId = &"{imageId}-{file.getId()}"
+    textures[sprId] = img
+    result.sprites.add(Sprite.init(sprId, 0.0, 0.0, w.float, h.float))
 
-  result.sort (a, b: Sprite) => cmp(b.h, a.h)
-
+  ## Sort and place sprites on spritesheet
+  result.sprites.sort (a, b: Sprite) => cmp(b.h, a.h)
   var x, y, maxHeight = 0.0
-  for r in result.mitems:
-    if x + r.w > 512:
+  for spr in result.sprites.mitems:
+    if x + spr.w > W:
       y += maxHeight
       x = 0.0
       maxHeight = 0.0
-
-    if y + r.h > 512:
+    if y + spr.h > H:
       break
+    spr.x = x
+    spr.y = y
+    x += spr.w
+    maxHeight = max(spr.h, maxHeight)
 
-    r.x = x
-    r.y = y
-    x += r.w
-    maxHeight = max(r.h, maxHeight)
+  ## Render spritesheet to canvas
+  startCanvas(canvas)
+  for spr in result.sprites:
+    let 
+      tex = textures[spr.id]
+      (tw, th) = tex.size()
+    texture(
+      tex, 
+      (0.0, 0.0, tw.float, th.float), 
+      (spr.x, spr.y, tw.float, th.float)
+    )
 
-  for r in result:
-    let tex = textures[r.id]
-    var tw, th: cint
-
-    queryTexture(tex, nil, nil, tw.addr, th.addr)
-
-    let
-      sr: Rectangle = (0.0, 0.0, tw.float, th.float)
-      dr: Rectangle = (r.x, r.y, tw.float, th.float)
-
-    texture(tex, sr, dr)
-
-  var w, h: cint
-  queryTexture(canvas, nil, nil, w.addr, h.addr)
-
-  var
-    rmask = 0xff000000.uint32
-    gmask = 0x00ff0000.uint32
-    bmask = 0x0000ff00.uint32
-    amask = 0x000000ff.uint32
-
-  var surface = createRGBSurface(0, w, h, 32, rmask, gmask, bmask, amask)
-  var rec = (0.0, 0.0, 0.0, 0.0).toSDLRect
-
+  var surface = createRGBSurface(0, W, H, 32, R_MASK, G_MASK, B_MASK, A_MASK)
   discard getRenderer().readPixels(nil, surface.format.format.cint,
       surface.pixels, surface.pitch)
-
-  discard savePNG(surface, "res" / "textures" / "atlas.png")
-
-  for tex in textures.values:
-    destroyTexture(tex)
-
+  discard savePNG(surface, "res" / "textures" / (imageId & "_atlas.png"))
   endCanvas()
-
+  
 proc createAtlasData*(config: Config): Atlas =
-  var sprites = config.generateSpritesheet()
+  result = Atlas()
+
+  for atlas in config.atlases:
+    result.spriteAtlases.add(generateSpriteAtlas(config.dir / atlas))
 
   var groups: seq[tuple[id: string, path: string]] = @[]
 
@@ -155,11 +165,6 @@ proc createAtlasData*(config: Config): Atlas =
       if item.path.endsWith(group):
         groups.add((group, item.path))
         break
-
-  result = Atlas()
-
-  for sprite in sprites:
-    result.sprites[sprite.id] = sprite
 
   for (id, path) in groups:
     var imgGroup = ImageGroup(id: id, images: @[])
@@ -175,9 +180,20 @@ iterator sprites*(atlas: Atlas): tuple[id: string, region: Rectangle] =
     let spr = atlas.sprites[spriteId]
     yield (spriteId, (spr.x, spr.y, spr.w, spr.h))
 
-proc getSpriteRegion*(atlas: Atlas, id: string): Rectangle =
-  let spr = atlas.sprites[id]
-  (spr.x, spr.y, spr.w, spr.h)
+proc getSpriteImage*(atlas: Atlas, spriteId: string): string =
+  ## Returns image id given sprite id
+  for spriteAtlas in atlas.spriteAtlases:
+    for sprite in spriteAtlas.sprites:
+      if sprite.id == spriteId:
+        return spriteAtlas.imageId
+
+proc getSpriteRegion*(atlas: Atlas, spriteId: string): Rectangle =
+  let imageId = atlas.getSpriteImage(spriteId) 
+  for spriteAtlas in atlas.spriteAtlases:
+    if spriteAtlas.imageId == imageId:
+      for spr in spriteAtlas.sprites:
+        if spr.id == spriteId:
+          return (spr.x, spr.y, spr.w, spr.h)
 
 proc updateHashes*(config: var Config): bool =
   for path in config.allSpritesInFolder():
@@ -192,13 +208,6 @@ proc updateHashes*(config: var Config): bool =
 
 proc loadConfig*(atlasDir: string): Config =
   Config.load(atlasDir / "config.json")
-
-proc start(imagesDir, outDir: string, name = "atlas", format = "png",
-    prettify = false) =
-  var config = imagesDir.loadConfig()
-  var rects = config.generateSpritesheet()
-
-  writeFile(imagesDir.string / "config.json", ( % config).pretty)
 
 proc load*(T: type Atlas, atlasDirs: string): T =
   readFile(atlasDirs / "atlas.json").parseJson().to(T)
