@@ -8,10 +8,10 @@ type
 
   SomeCompBuff* = ref object of RootObj
     name*: string
+    dead: seq[int]
 
   CompBuff*[T] = ref object of SomeCompBuff
     components: seq[T]
-    dead: seq[int]
 
   View* = ref object
     valid: bool
@@ -23,6 +23,7 @@ type
     comps: Table[TypeId, int]
 
   Ents* = object
+    dead: seq[int]
     entities: seq[Ent]
     views: seq[View]
     compNames: Table[TypeId, string]
@@ -60,7 +61,8 @@ iterator items*(view: View): EntId =
 
 iterator entities*(ents: var Ents): EntId =
   for ent in ents.entities.items:
-    yield ent.id
+    if not ents.dead.contains(ent.id):
+      yield ent.id
 
 proc initCompBuff*[T](): CompBuff[T] =
   result = new(CompBuff[T])
@@ -76,7 +78,7 @@ proc add*[T](buff: var CompBuff[T], comp: T): int =
     result = len(buff.components)
     buff.components.add(comp)
 
-proc del*[T](buff: var CompBuff[T], idx: int) =
+proc del*(buff: var SomeCompBuff, idx: int) =
   buff.dead.add(idx)
 
 proc get*[T](buff: CompBuff[T], idx: int): T =
@@ -92,10 +94,19 @@ proc init*(T: type Ents): T =
     compNames: initTable[TypeId, string]())
 
 proc spawn*(ents: var Ents): EntId =
-  result = ents.entities.len()
-  ents.entities.add Ent(
-    id: result,
-    comps: initTable[TypeId, int]())
+  if ents.dead.len > 0:
+    result = ents.dead.pop()
+
+    ## TODO: Reuse memory
+    ents.entities[result] = Ent(
+      id: result,
+      comps: initTable[TypeId, int]()
+    )
+  else:
+    result = ents.entities.len()
+    ents.entities.add Ent(
+      id: result,
+      comps: initTable[TypeId, int]())
 
   # TODO: only invalidate the views that match the entities components
   for view in ents.views:
@@ -132,16 +143,47 @@ proc kill*(ents: var Ents, entId: EntId) =
   # TODO: delete entity from views
   discard
 
+proc invalidateViewsWith(ents: var Ents, entId: EntId) =
+  for view in ents.views.mitems:
+    if view.entities.contains(entId):
+      view.valid = false
+    view.entities = view.entities.filterIt(ents.dead.contains(it))
+
 converter toEnts*(entAdd: EntAdd): var Ents =
   result = entAdd.ents
 
 proc add*(ents: var Ents, e: EntId): EntAdd {.discardable.} =
   result = EntAdd(ents: ents, id: e)
 
+proc remove* [T: typedesc](ents: var Ents, id: EntId, t: T) =
+  if not ents.has(id, t):
+    return
+  var typeId = getTypeId(T)
+  var e = ents.entities[id]
+  ents.compBuffs[typeId].del(e.comps[typeId])
+  e.comps.del(typeId)
+  ents.invalidateViewsWith(id)
+
+proc del* (ents: var Ents, id: EntId) =
+  var e = ents.entities[id]
+  ents.dead.add(id)
+
+  for compId in e.comps.keys:
+    ents.compBuffs[compId].del(e.comps[compId])
+
+  ents.invalidateViewsWith(id)
+
 proc has*(es: Ents, id: EntId, t: TypeId): bool =
-  es.entities[id].comps.hasKey(t)
+  if not es.dead.contains(id):
+    es.entities[id].comps.hasKey(t)
+  else:
+    false
+
 proc has*(es: Ents, id: EntId, t: typedesc): bool =
-  es.entities[id].comps.hasKey(getTypeId(t))
+  if not es.dead.contains(id):
+    es.entities[id].comps.hasKey(getTypeId(t))
+  else:
+    false
 
 proc andAll*(vs: varargs[bool]): bool =
   result = true
@@ -160,7 +202,7 @@ macro has*(es, id: untyped, types: openArray[typedesc]): untyped = hasImpl()
 proc has*(es: Ents, id: EntId, types: openArray[TypeId]): bool =
   result = true
   for t in types:
-    if not es.has(id, t):
+    if es.dead.contains(id) or not es.has(id, t):
       return false
 
 proc get*[T: typedesc](ents: Ents, entId: EntId, t: T): auto =
@@ -194,13 +236,13 @@ macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
   result = nnkStmtList.newTree(vs)
 
 proc populate(ents: var Ents, view: View) =
+  view.entities.setLen(0)
   for ent in ents.entities:
     if view.entities.contains(ent.id):
       continue
     var ks = view.keys
     if ents.has(ent.id, ks):
       view.entities.add(ent.id)
-
   view.valid = true
 
 proc view*(ents: var Ents, ts: openArray[TypeId]): auto =
