@@ -1,7 +1,7 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
     vmath, strutils, unittest, options, sequtils
 import typeids, jsony, sets, macros
-import strformat
+import strformat, print
 
 type
   EntId* = int
@@ -147,7 +147,6 @@ proc invalidateViewsWith(ents: var Ents, entId: EntId) =
   for view in ents.views.mitems:
     if view.entities.contains(entId):
       view.valid = false
-    view.entities = view.entities.filterIt(ents.dead.contains(it))
 
 converter toEnts*(entAdd: EntAdd): var Ents =
   result = entAdd.ents
@@ -158,8 +157,9 @@ proc add*(ents: var Ents, e: EntId): EntAdd {.discardable.} =
 proc remove* [T: typedesc](ents: var Ents, id: EntId, t: T) =
   if not ents.has(id, t):
     return
+
   var typeId = getTypeId(T)
-  var e = ents.entities[id]
+  var e = ents.entities[id].addr
   ents.compBuffs[typeId].del(e.comps[typeId])
   e.comps.del(typeId)
   ents.invalidateViewsWith(id)
@@ -380,7 +380,7 @@ when isMainModule:
     es.add(be).a(A(value: 2.0)).a(B())
     es.add(ce).a(A(value: 3.0))
 
-    test "we can match keys":
+    test "can match keys":
       let view = View.new(getTypeId(A), getTypeId(B), getTypeId(C))
       check(view.keyMatch([A.getTypeId]) == false)
       check(view.keyMatch([A.getTypeId, B.getTypeId]) == false)
@@ -388,7 +388,7 @@ when isMainModule:
       check(view.keyMatch([A.getTypeId, B.getTypeId, C.getTypeId,
           D.getTypeId]) == false)
 
-    test "we can iterate entities using views":
+    test "can iterate entities using views":
       let aes = es.view(A).entities.toSeq()
       let bes = es.view(B).entities.toSeq()
       let ces = es.view(C).entities.toSeq()
@@ -405,3 +405,12 @@ when isMainModule:
       check(bes.len() == 2)
       check(ces.len() == 1)
       check(aandbs.len() == 2)
+
+    test "can remove components":
+      check(es.has(ae, B))
+      check(es.has(be, B))
+
+      es.remove(be, B)
+
+      check(es.has(ae, B))
+      check(es.has(be, B) == false)
