@@ -2,7 +2,7 @@ import sdl2, vmath, chroma, tables, cascade
 import sdl2/[gfx, image, ttf]
 import std/[logging, md5]
 import fusion/matching
-import resources, state, options
+import resources, state, options, strformat
 
 type
   Rectangle* = tuple[x, y, w, h: float]
@@ -59,6 +59,13 @@ proc beginDrawing*(ren: Renderer) =
 
 proc endDrawing*(ren: Renderer) =
   getRenderer().present()
+
+proc beginClip*(ren: Renderer, x, y, w, h: int) =
+  var rec = rect(x.cint, y.cint, w.cint, h.cint)
+  discard getRenderer().setClipRect(rec.addr)
+
+proc endClip*(ren: Renderer) =
+  discard getRenderer().setClipRect(nil)
 
 proc offsetZoom*(pos: Vec2): (Vec2, float) =
   let sz = renderer.windowSize()
@@ -118,17 +125,19 @@ proc text*(
   ren: var Renderer,
   tex: string,
   font: Font,
-  x, y: SomeNumber
+  x, y: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)
 ) =
   var texture = block:
-    let id = $tex.toMD5
+    let id = $(&"{tex}${$color}").toMD5
+    let c = color.rgba
     if ren.texts.hasKey(id):
       ren.texts[id]
     else:
       var surface = renderTextSolid(
         font.fontPtr,
         tex.cstring,
-        (r: 255.uint8, g: 255.uint8, b: 255.uint8, a: 255.uint8))
+        (r: c.r, g: c.g, b: c.b, a: c.a))
       var tex = getRenderer().createTextureFromSurface(surface)
       freeSurface(surface)
       ren.texts[id] = tex

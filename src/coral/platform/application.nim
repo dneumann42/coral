@@ -1,5 +1,5 @@
 import sdl2, tables, chroma, opengl, vmath, std/logging
-import state, resources, renderer, keys
+import state, resources, renderer, keys, strformat
 import sdl2/ttf
 
 template sdlFailIf(condition: typed, reason: string) =
@@ -79,7 +79,7 @@ proc initializeWindow*(title = "Window") =
   ))
 
   sdlFailIf(getRenderer().isNil):
-    "Renderer could not be created"
+    &"Renderer could not be created: {getError()}"
 
   clock.ticks = getPerformanceCounter()
   ren = Renderer.init()
@@ -155,11 +155,11 @@ proc shouldUpdate*(): bool =
     secondsAccum -= 1.0 / targetFPS.float
     return true
 
-proc beginDrawing() =
-  ren.beginDrawing()
+proc beginDrawing() = ren.beginDrawing()
+proc endDrawing() = ren.endDrawing()
 
-proc endDrawing() =
-  ren.endDrawing()
+proc beginClip*(x, y, w, h: int) = ren.beginClip(x, y, w, h)
+proc endClip*() = ren.endClip()
 
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
@@ -189,9 +189,10 @@ proc textureSize*(texId: string): Vec2 =
 proc text*(
   tex: string,
   fontId: string,
-  x, y: SomeNumber
+  x, y: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)
 ) =
-  ren.text(tex, res.get(Font, fontId), x, y)
+  ren.text(tex, res.get(Font, fontId), x, y, color)
 
 proc rect*(
   x, y, w, h: SomeNumber,
