@@ -23,7 +23,7 @@ type
     dt: float
     timer: float
     ticks: uint64
-  
+
   MouseButton* = enum
     mouseLeft = 1
     mouseMiddle
@@ -126,7 +126,8 @@ proc isUp*(mouse: MouseButton): bool =
 
 proc isPressed*(mouse: MouseButton): bool =
   if mouseInputs.hasKey(mouse):
-    mouseInputs[mouse] and (not lastMouseInputs.hasKey(mouse) or not lastMouseInputs[mouse])
+    mouseInputs[mouse] and (not lastMouseInputs.hasKey(mouse) or
+        not lastMouseInputs[mouse])
   else:
     false
 

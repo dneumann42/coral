@@ -69,6 +69,9 @@ proc initCompBuff*[T](): CompBuff[T] =
   result.components = @[]
   result.name = name(T)
 
+proc isDead*(ents: var Ents, entId: EntId): bool =
+  false
+
 proc add*[T](buff: var CompBuff[T], comp: T): int =
   if buff.dead.len > 0:
     let idx = buff.dead.pop()
