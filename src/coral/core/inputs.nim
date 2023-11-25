@@ -1,4 +1,4 @@
-import tables, sets, sequtils, options, sugar
+import tables, options, vmath
 
 import ../platform/keys
 import ../platform/application
@@ -42,3 +42,6 @@ proc release*(key: KeyboardKey): bool =
 
 proc input*(id: string): Binding =
   actions[id]
+
+proc mousePosition*(): Vec2 =
+  application.mousePosition() 

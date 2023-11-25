@@ -23,13 +23,22 @@ type
     dt: float
     timer: float
     ticks: uint64
+  
+  MouseButton* = enum
+    mouseLeft = 1
+    mouseMiddle
+    mouseRight
 
 var
   ren: Renderer
   res: Resources
   context: GlContextPtr
+
   inputs: Table[KeyboardKey, bool]
   lastInputs: Table[KeyboardKey, bool]
+  mouseInputs: Table[MouseButton, bool]
+  lastMouseInputs: Table[MouseButton, bool]
+
   prev: uint64
   clock = Clock()
   frameTicker = 0
@@ -106,10 +115,40 @@ proc isReleased*(key: KeyboardKey): bool =
   else:
     false
 
+proc isDown*(mouse: MouseButton): bool =
+  if mouseInputs.hasKey(mouse):
+    mouseInputs[mouse]
+  else:
+    false
+
+proc isUp*(mouse: MouseButton): bool =
+  not mouse.isDown()
+
+proc isPressed*(mouse: MouseButton): bool =
+  if mouseInputs.hasKey(mouse):
+    mouseInputs[mouse] and (not lastMouseInputs.hasKey(mouse) or not lastMouseInputs[mouse])
+  else:
+    false
+
+proc isReleased*(mouse: MouseButton): bool =
+  if mouseInputs.hasKey(mouse) and lastMouseInputs.hasKey(mouse):
+    not mouseInputs[mouse] and lastMouseInputs[mouse]
+  else:
+    false
+
 proc mousePosition*(): Vec2 =
   var ix, iy: cint
   sdl2.getMouseState(ix.addr, iy.addr)
   result = vec2(ix.float, iy.float)
+
+proc intersects*(a, b: Vec2, radius = 10.0): bool =
+  dist(a, b) < radius
+
+proc intersects*(a, b: tuple[x, y, w, h: SomeNumber]): bool =
+  a.x + a.w > b.x and a.x < b.x + b.w and a.y + a.h > b.y and a.y < b.y + b.h
+
+proc intersects*(p: Vec2, a: tuple[x, y, w, h: float|float32]): bool =
+  p.x > a.x and p.x < a.x + a.w and p.y > a.y and p.y < a.y + a.h
 
 proc closeWindow*() =
   sdl2.quit()
@@ -128,6 +167,8 @@ proc updateWindow*(): bool =
 
   for key in inputs.keys:
     lastInputs[key] = inputs[key]
+  for mouse in mouseInputs.keys:
+    lastMouseInputs[mouse] = mouseInputs[mouse]
 
   var TPS = getPerformanceFrequency()
 
@@ -146,6 +187,10 @@ proc updateWindow*(): bool =
       inputs[event.key.keysym.scancode.toKeyboardKey] = true
     of KeyUp:
       inputs[event.key.keysym.scancode.toKeyboardKey] = false
+    of MouseButtonDown:
+      mouseInputs[event.button.button.MouseButton] = true
+    of MouseButtonUp:
+      mouseInputs[event.button.button.MouseButton] = false
     else:
       discard
 
@@ -233,11 +278,11 @@ proc texture*(
   var tex = res.get(Texture, texId)
   var (w, h) = tex.size()
   ren.texture(
-    tex, 
+    tex,
     (x: 0.0, y: 0.0, w: w, h: h),
-    (x: pos.x.float, y: pos.y.float, w: w * scale, h: h * scale), 
-    origin, 
-    rotation, 
+    (x: pos.x.float, y: pos.y.float, w: w * scale, h: h * scale),
+    origin,
+    rotation,
     color
   )
 

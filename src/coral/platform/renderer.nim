@@ -80,8 +80,7 @@ proc getTransformedRect(x, y, w, h: SomeNumber): Rect =
     cint(pos.x),
     cint(pos.y),
     cint(w.float * zoom),
-    cint(h.float * zoom)
-  )
+    cint(h.float * zoom))
 
 proc rect*(
   ren: Renderer,
