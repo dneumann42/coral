@@ -44,10 +44,10 @@ proc cameraZoom*(artist: Artist): float =
   artist.camera.zoom
 
 proc screenWidth*(): int =
-  windowSize().x.int
+  renderer.windowSize().x.int
 
 proc screenHeight*(): int =
-  windowSize().y.int
+  renderer.windowSize().y.int
 
 proc layerWidth*(): int =
   containerSize.x.int

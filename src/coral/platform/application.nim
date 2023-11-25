@@ -94,6 +94,8 @@ proc initializeWindow*(title = "Window") =
   ren = Renderer.init()
   res = Resources.init()
 
+proc windowSize*(): Vec2 = renderer.windowSize()
+
 proc isDown*(key: KeyboardKey): bool =
   if inputs.hasKey(key):
     inputs[key]

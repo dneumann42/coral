@@ -1,8 +1,7 @@
 import events, plugins, scenes, options, commands, patty, states, ents
 import ../artist/artist
 
-import ../platform/application
-import ../platform/resources
+import ../platform
 
 type
   Game* = object
