@@ -7,10 +7,7 @@
 
 import unittest, chroma, vmath, options
 
-import coral/platform/[application, renderer, keys]
-import coral/artist/artist
-
-import coral/core/[game, plugins, inputs, commands]
+import coral/[platform, artist, core]
 
 proc loading(plugins: var Plugins) =
   plugins.add("loading", load) do():

@@ -67,13 +67,13 @@ macro generateFunctionTypes() =
 macro generateSomeFunc() =
   var res = nnkStmtList.newTree()
   var sec = nnkTypeSection.newTree()
-  
+
   proc idx(vs: seq[string]): NimNode =
     if len(vs) == 1:
       ident(vs[0])
     else:
       nnkInfix.newTree(ident("|"), ident(vs[0]), idx(vs[1..<vs.len]))
-  
+
   var def = nnkTypeDef.newTree(
     newIdentNode("SomeFunc"),
     newEmptyNode(),
@@ -217,7 +217,10 @@ type
     plugins: OrderedTable[string, Plugin]
 
 var pluginOrderRules: seq[int] = @[]
-# var ordering = 
+# var ordering =
+
+proc pluginIds*(plugins: Plugins): seq[string] =
+  result = plugins.plugins.keys.toSeq()
 
 proc impl(ps: Plugins, id: string, stage: PluginStage, f: SomeFunc): Plugins =
   block:
@@ -235,9 +238,10 @@ macro generateAdds() =
     let id = ident(f)
     result.add(
       quote do:
-        proc add*(ps: Plugins, id: string, stage: PluginStage, fun: `id`): Plugins {.discardable.} =
-          ps.impl(id, stage, fun))
-  
+      proc add*(ps: Plugins, id: string, stage: PluginStage,
+          fun: `id`): Plugins {.discardable.} =
+        ps.impl(id, stage, fun))
+
 generateAdds()
 
 # Plugin will only be active when scenes are active
@@ -251,6 +255,9 @@ iterator items*(ps: Plugins): (string, Plugin) =
 
 proc isScene*(p: Plugin): bool = p.isScene
 
+proc isScene*(plugins: Plugins, pluginId: string): bool =
+  result = plugins.plugins[pluginId].isScene()
+
 func init*(T: type Plugins): T =
   T(plugins: initOrderedTable[string, Plugin]())
 
@@ -261,7 +268,7 @@ proc isActive(self: Plugins, activeScene: Option[string], id: string): bool =
     return id == activeScene.get("")
 
   if plug.activeOnScenes.len > 0:
-    var active = false 
+    var active = false
     for sc in plug.activeOnScenes:
       if self.plugins[sc].isScene and sc == activeScene.get(""):
         active = true

@@ -41,11 +41,6 @@ var
 
   prev: uint64
   clock = Clock()
-  frameTicker = 0
-  totalDeltaTime = 0.0
-  totalTicks = 0.0
-  dts: seq[float] = newSeq[float]()
-  avgDt = 0.016
 
 proc fps*(): float =
   if clock.dt == 0.0:

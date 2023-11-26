@@ -17,6 +17,9 @@ iterator items*(commands: Commands): Command =
 proc init*(T: type Commands): T =
   T(stack: @[])
 
+
+## TODO: check that plugin is a scene
+
 proc pushScene*(self: var Commands, id: string): var Commands {.discardable.} =
   self.stack.add Scene(Go(id))
   self

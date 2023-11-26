@@ -23,5 +23,6 @@ requires "opengl"
 requires "print"
 requires "fusion"
 requires "cascade"
+requires "chroma"
 requires "https://github.com/SkyVault/tweenim"
 

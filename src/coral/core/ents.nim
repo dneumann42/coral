@@ -1,7 +1,6 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
     vmath, strutils, unittest, options, sequtils
-import typeids, jsony, sets, macros
-import strformat, print
+import typeids, jsony, sets, strformat
 
 type
   EntId* = int
@@ -157,7 +156,7 @@ converter toEnts*(entAdd: EntAdd): var Ents =
 proc add*(ents: var Ents, e: EntId): EntAdd {.discardable.} =
   result = EntAdd(ents: ents, id: e)
 
-proc remove* [T: typedesc](ents: var Ents, id: EntId, t: T) =
+proc remove*[T: typedesc](ents: var Ents, id: EntId, t: T) =
   if not ents.has(id, t):
     return
 
@@ -167,7 +166,7 @@ proc remove* [T: typedesc](ents: var Ents, id: EntId, t: T) =
   e.comps.del(typeId)
   ents.invalidateViewsWith(id)
 
-proc del* (ents: var Ents, id: EntId) =
+proc del*(ents: var Ents, id: EntId) =
   var e = ents.entities[id]
   ents.dead.add(id)
 
