@@ -5,22 +5,7 @@ import ../artist/artist
 import std/macros
 import std/macrocache
 
-proc perm[T](a: openarray[T], n: int, use: var seq[bool]): seq[seq[T]] =
-  result = newSeq[seq[T]]()
-  if n <= 0: return
-  for i in 0 .. a.high:
-    if not use[i]:
-      if n == 1:
-        result.add(@[a[i]])
-      else:
-        use[i] = true
-        for j in perm(a, n - 1, use):
-          result.add(a[i] & j)
-        use[i] = false
-
-proc permutations[T](a: openarray[T], n: int): seq[seq[T]] =
-  var use = newSeq[bool](a.len)
-  perm(a, n, use)
+import tools
 
 const typeTable = CacheTable"typeTable"
 
