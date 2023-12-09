@@ -206,7 +206,6 @@ proc endClip*() = ren.endClip()
 
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
-  canvas.setTextureBlendMode(BLENDMODE_BLEND)
   ren.pushColor(color(0.0, 0.0, 0.0, 0.0)):
     getRenderer().clear()
 
@@ -228,6 +227,9 @@ proc measureString*(text: string, fontId: string): Vec2 =
 proc textureSize*(texId: string): Vec2 =
   var (w, h) = size(res.get(Texture, texId))
   result = vec2(w, h)
+
+proc clear*(color = color(0.0, 0.0, 0.0, 0.0)) =
+  ren.clear(color = color)
 
 proc text*(
   tex: string,

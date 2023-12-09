@@ -8,6 +8,7 @@ type
   Rectangle* = tuple[x, y, w, h: float]
   Renderer* = object
     texts: Table[string, TexturePtr]
+
   Camera* = object
     position*, origin*: Vec2
     rotation*: float
@@ -32,6 +33,10 @@ proc init*(T: type Canvas, width, height: SomeInteger): T =
   result = getRenderer().createTexture(
     SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, width.int32, height.int32
   )
+  result.setTextureBlendMode(BLENDMODE_BLEND)
+
+proc init*(T: type Camera, pos = vec2(0, 0)): T =
+  T(position: pos, origin: pos, rotation: 0.0, zoom: 1.0)
 
 proc size*(tex: TexturePtr): (int, int) =
   var w, h: cint
@@ -53,8 +58,12 @@ template pushColor*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0),
   blk
   getRenderer().setDrawColor(last.r, last.g, last.b, last.a)
 
+proc clear*(ren: Renderer, color = color(0.0, 0.0, 0.0, 1.0)) =
+  ren.pushColor(color):
+    getRenderer().clear()
+
 proc beginDrawing*(ren: Renderer) =
-  ren.pushColor(color(0.2, 0.2, 0.2, 1.0)):
+  ren.pushColor(color(0.0, 0.0, 0.0, 1.0)):
     getRenderer().clear()
 
 proc endDrawing*(ren: Renderer) =

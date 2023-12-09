@@ -1,11 +1,11 @@
-import events, scenes, options, commands, patty, states, ents, plugins2, macros
+import events, options, commands, patty, states, ents, plugins2, macros, scenes
 import ../artist/artist
-
 import ../platform
 
 type
   GameStep* = enum
     load
+    loadScene
     update
     draw
     unload
@@ -14,12 +14,6 @@ type
     shouldExit: bool
     startingScene: string
     title: string
-    state: GameState
-    ents: Ents
-    events: Events
-    scenes: Scenes
-    artist: Artist
-    resources: Resources
 
 proc `=sink`(x: var Game; y: Game) {.error.}
 proc `=copy`(x: var Game; y: Game) {.error.}
@@ -33,48 +27,39 @@ func state*(game: var Game): var GameState =
 
 func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
   T(startingScene: startingScene.get(""),
-    title: title,
-    state: GameState.init(),
-    ents: Ents.init(),
-    events: Events.init(),
-    scenes: Scenes.init(),
-    resources: Resources.init())
+    title: title)
+
+proc title*(game: Game): string = game.title
 
 proc commandDispatch*(game: var Game; commands: Commands) =
   for cmd in commands:
     match cmd:
-      Scene(change): game.scenes.change(change)
+      PushScene(pushId): pushScene(pushId)
+      ChangeScene(changeId): discard changeScene(changeId)
+      BackScene: discard backScene()
       Exit: game.shouldExit = true
       SaveProfile: discard
 
-template withCommands(game: var Game; blk: untyped) =
-  var commands = Commands.init()
-  blk(game, commands)
-  game.commandDispatch(commands)
-
-template load(game: var Game) =
-  initializeWindow(title = game.title)
-  # game.scenes.change(Go game.startingScene)
-
-  proc good(id: string): bool = true
-  expandMacros:
-    generatePluginSteps[GameStep](load, good)
-
-proc update(game: var Game) =
-  # game.withCommands do (game: var Game; cmd: var Commands):
-  #   discard
-
-  # game.withCommands do (game: var Game; cmd: var Commands):
-  #   discard
-
-  game.events.flush()
-
-proc draw(game: var Game) =
-  game.withCommands do (game: var Game; cmd: var Commands):
-    game.artist.paint()
-
 template start*(game: var Game) =
-  game.load()
+  var
+    cmds {.inject.} = Commands.init()
+    artist {.inject.} = Artist.init()
+    state {.inject.} = GameState.init()
+    ents {.inject.} = Ents.init()
+    events {.inject.} = Events.init()
+    resources {.inject.} = Resources.init()
+
+  proc shouldLoadScene(id: PluginId): bool =
+    result = shouldLoad(id)
+
+  proc isActive(id: PluginId): bool =
+    if not isScene(id) or activeScene().isNone:
+      return true
+    result = activeScene().get() == id
+
+  initializeWindow(title = game.title)
+  pushScene(game.startingScene)
+  generatePluginStep[GameStep](load)
 
   while updateWindow():
     if game.shouldExit:
@@ -82,7 +67,12 @@ template start*(game: var Game) =
       continue
 
     if shouldUpdate():
-      game.update()
+      generatePluginStep[GameStep](loadScene, shouldLoadScene)
+      generatePluginStep[GameStep](update, isActive)
+
+    game.commandDispatch(cmds)
+    flush(events)
 
     withDrawing:
-      game.draw()
+      generatePluginStep[GameStep](draw, isActive)
+      paint(artist)

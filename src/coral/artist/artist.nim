@@ -92,7 +92,8 @@ proc rect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
 
 proc linerect*(x, y: SomeNumber, w = 64.0, h = 64.0, origin = vec2(),
     rotation = 0.0, color = color(1.0, 1.0, 1.0, 1.0)) =
-  application.linerect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
+  application.linerect(x.float32, y.float32, w.float32, h.float32, origin,
+      rotation, color)
 
 proc getOrCreateLayer*(artist: var Artist, depth: int, camera = false): Layer =
   for layer in artist.layers:

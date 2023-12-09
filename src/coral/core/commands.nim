@@ -2,7 +2,9 @@ import patty, json, typetraits
 import scenes, events
 
 variantp Command:
-  Scene(change: SceneChange)
+  PushScene(pushId: string)
+  ChangeScene(changeId: string)
+  BackScene
   SaveProfile
   Exit
 
@@ -18,17 +20,15 @@ proc init*(T: type Commands): T =
   T(stack: @[])
 
 
-## TODO: check that plugin is a scene
-
 proc pushScene*(self: var Commands, id: string): var Commands {.discardable.} =
-  self.stack.add Scene(Go(id))
+  self.stack.add(PushScene(id))
   self
 
-proc popScene*(self: var Commands) =
-  self.stack.add Scene(Back())
+proc backScene*(self: var Commands) =
+  self.stack.add(BackScene())
 
 proc changeScene*(self: var Commands, id: string): var Commands {.discardable.} =
-  self.stack.add Scene(Change(id))
+  self.stack.add(ChangeScene(id))
   self
 
 proc saveProfile*(self: var Commands): var Commands {.discardable.} =

@@ -3,43 +3,54 @@ import tools, hashes, rdstdin, tables, strformat, sets, strutils, sugar,
 
 import std/[macros, macrocache]
 
-type
-  AbstractPlugin = ref object of RootObj
-  Plugin = ref object of AbstractPlugin
-
-type PluginFunc = proc(): void
-
-type PluginId = string
+type PluginId* = string
 
 const functions = CacheTable"functions"
 const functionCount = CacheTable"functionCounts"
 
 var enabled: HashSet[PluginId]
-var loaders: HashSet[PluginId]
 
-# var functionValues: seq[]
+macro plugin*(id, blk): auto =
+  result = nnkStmtList.newTree()
 
-# macro add*[S: enum](pluginId: PluginId, step: S, fun: untyped) =
-#   functions.add((pluginId, step, fun))
+  for child in blk.items:
+    if child.kind != nnkProcDef:
+      raiseAssert("Expected a proc definition got " & child.treeRepr)
+    let name = child[0]
+    let newIdStr = $child[0] & $id
+    let newId = ident(newIdStr)
+    var newProc = nnkProcDef.newTree(nnkPostfix.newTree(ident("*"), newId))
+    var idx = 0
 
-proc shouldLoad*(id: PluginId): bool = loaders.contains(id)
+    for inner in child.items:
+      if idx > 0:
+        newProc.add(inner)
+      idx += 1
+
+    let reg = nnkCall.newTree(ident("register"), newLit($id), name, ident(newIdStr))
+    result.add(quote do: `newProc`; `reg`)
+
+  let name = $id
+  result.add(quote do: enable(`name`))
+
 proc isEnabled*(id: PluginId): bool = enabled.contains(id)
 proc disable*(id: PluginId) = enabled.excl(id)
 proc enable*(id: PluginId) = enabled.incl(id)
 
-macro register*[S: enum](id: PluginId, step: S, fn: typed): auto =
+macro register*[S: enum](id: PluginId, step: S, fn: typed) =
   let idStep = fmt"{id}|{step}"
+
+  var first = false
 
   if not functionCount.hasKey(idStep):
     functionCount[idStep] = newLit(0)
+    first = true
 
   var count = functionCount[idStep].intVal
   functionCount[idStep].intVal = count + 1
   functions[idStep & "|" & $count] = fn
-  quote do:
-    enable(`id`)
 
-macro generatePluginSteps*[S: enum](step: S, predicate: untyped): auto =
+macro generatePluginStep*[S: enum](step: S, predicate: untyped = false): auto =
   result = nnkStmtList.newTree()
 
   for key, fun in functions.pairs:
@@ -64,14 +75,17 @@ macro generatePluginSteps*[S: enum](step: S, predicate: untyped): auto =
     if isEmpty:
       call.add(newEmptyNode())
 
-    var checkedCall = quote do:
-      if isEnabled(`pluginId`) and `predicate`(`pluginId`):
-        `call`
-    result.add(checkedCall)
+    let checkedCall = block:
+      if predicate != newLit(false):
+        quote do:
+          if isEnabled(`pluginId`) and `predicate`(`pluginId`):
+            `call`
+      else:
+        quote do:
+          if isEnabled(`pluginId`):
+            `call`
 
-proc good(id: PluginId): bool {.inline.} = true
-template generatePluginSteps*(step: untyped): auto =
-  generatePluginSteps(step, good)
+    result.add(checkedCall)
 
 when isMainModule:
   type Aa = object
@@ -88,6 +102,10 @@ when isMainModule:
   proc testUpdate2() =
     discard
 
+  dumpAstGen:
+    proc test*() =
+      discard
+
   type
     Steps = enum
       load
@@ -102,12 +120,22 @@ when isMainModule:
   register("test", update, testUpdate)
   register("test", update, testUpdate2)
 
+  expandMacros:
+    plugin(Health):
+      proc load(aa: Aa) =
+        echo("LOADED HEALTH")
+      proc update(bb: Bb) =
+        echo("UPDATE")
+
   var aa = Aa()
   var bb = Bb()
 
-  expandMacros:
-    generatePluginSteps[Steps](load, shouldLoad)
-    generatePluginSteps[Steps](update)
+  proc shouldLoad(id: PluginId): bool =
+    true
+
+  # expandMacros:
+  generatePluginStep[Steps](load, shouldLoad)
+  generatePluginStep[Steps](update)
 
   # var line: string
   # while true:

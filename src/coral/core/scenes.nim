@@ -1,50 +1,41 @@
-import patty, sets, typetraits, sequtils, options
+import sets, typetraits, sequtils, options
 import std/logging
 
 type SceneId* = string
 
-variantp SceneChange:
-  Go(pushId: SceneId)
-  Change(changeId: SceneId)
-  Back
-
-type Scenes* = object
-  sceneStack: seq[SceneId]
-  loadSet: HashSet[string]
+var allScenes: HashSet[string]
+var sceneStack: seq[SceneId]
+var loadSet: HashSet[string]
 
 proc sceneId*[T](sc: T): SceneId =
   name type(sc)
 
-proc init*(T: type Scenes): T =
-  T(sceneStack: @[], loadSet: initHashSet[string]())
+proc activeScene*(): Option[string] =
+  if sceneStack.len() > 0:
+    result = sceneStack[^1].some
 
-proc activeScene*(self: var Scenes): Option[string] =
-  if self.sceneStack.len() > 0:
-    result = self.sceneStack[^1].some
+proc shouldLoad*(id: SceneId): bool =
+  result = loadSet.contains(id)
+  if result:
+    loadSet.excl(id)
 
-proc shouldLoad*(self: var Scenes): seq[SceneId] =
-  result = self.loadSet.toSeq()
-  self.loadSet.clear()
+proc registerScene*(id: SceneId) =
+  allScenes.incl(id)
 
-proc add*(self: var Scenes, id: SceneId) =
-  self.sceneStack.add(id)
-  self.loadSet.incl(id)
+proc isScene*(id: SceneId): bool =
+  allScenes.contains(id)
 
-proc pop*(self: var Scenes): Option[SceneId] =
-  if len(self.sceneStack) > 0:
-    result = self.sceneStack.pop().some
+proc pushScene*(id: SceneId) =
+  sceneStack.add(id)
+  loadSet.incl(id)
 
-proc change*(self: var Scenes, ch: SceneChange): Option[
-    SceneId] {.discardable.} =
-  info("Changing scene: " & $ch)
-  match ch:
-    Go(pushId):
-      self.loadSet.incl(pushId)
-      self.add(pushId)
-    Back:
-      result = self.pop()
-    Change(changeId):
-      result = self.pop()
-      self.loadSet.incl(changeId)
-      self.sceneStack.add(changeId)
+proc popScene*(): Option[SceneId] =
+  if len(sceneStack) > 0:
+    result = sceneStack.pop().some
 
+proc backScene*(): Option[SceneId] =
+  result = popScene()
+
+proc changeScene*(sceneId: SceneId): Option[SceneId] =
+  result = popScene()
+  pushScene(sceneId)
