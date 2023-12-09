@@ -8,11 +8,12 @@
 import unittest, chroma, vmath, options
 
 import coral/[platform, artist, core]
+import coral/core/plugins2
+import menu
 
-proc loading(plugins: var Plugins) =
-  plugins.add("loading", load) do():
-    loadImage("tests/peppers.png")
-    loadFont("tests/DungeonFont.ttf", 72)
+proc resourceLoader() =
+  loadImage("tests/peppers.png")
+  loadFont("tests/DungeonFont.ttf", 72)
 
 proc mainMenu(plugins: var Plugins) =
   proc load() =
@@ -26,7 +27,7 @@ proc mainMenu(plugins: var Plugins) =
     rect(100.0, 100.0, 100.0, 100.0, color=color(0.0, 1.0, 0.5, 1.0))
     text("Hello, World!", "DungeonFont", 300.0, 300.0)
 
-  plugins.scene("mainmenu", load, update, draw)
+  # plugins.scene("mainmenu", load, update, draw)
 
 proc gameScene(plugins: var Plugins) =
   proc load() =
@@ -39,11 +40,14 @@ proc gameScene(plugins: var Plugins) =
   proc draw() =
     rect(100.0, 100.0, 100.0, 100.0, color=color(1.0, 0.5, 0.1, 1.0))
 
-  plugins.scene("gamescene", load, update, draw)
-
 test "it can play games":
   var game = Game.init(title = "Test game", startingScene = "mainmenu".some)
-  game.plugins.loading()
-  game.plugins.mainMenu()
-  game.plugins.gameScene()
+  # game.plugins.loading()
+  # game.plugins.mainMenu()
+  # game.plugins.gameScene()
+  
+  register("menu", load, loadMenu)
+  register("menu", update, updateMenu)
+  register("menu", draw, drawMenu)
+
   game.start()

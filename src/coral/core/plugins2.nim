@@ -1,4 +1,5 @@
-import tools, hashes, rdstdin
+import tools, hashes, rdstdin, tables, strformat, sets, strutils, sugar,
+    strutils, options
 
 import std/[macros, macrocache]
 
@@ -8,37 +9,80 @@ type
 
 type PluginFunc = proc(): void
 
-type PluginId = distinct string
-
-proc `$`*(id: PluginId): string {.borrow.}
-proc hash*(id: PluginId): Hash {.borrow.}
+type PluginId = string
 
 const functions = CacheTable"functions"
+const functionCount = CacheTable"functionCounts"
+
+var enabled: HashSet[PluginId]
+var loaders: HashSet[PluginId]
 
 # var functionValues: seq[]
 
 # macro add*[S: enum](pluginId: PluginId, step: S, fun: untyped) =
 #   functions.add((pluginId, step, fun))
 
-macro generatePluginSteps*[S: enum]() =
-  # Idea:
-  # we generate the step function
+proc shouldLoad(id: PluginId): bool = loaders.contains(id)
+proc isEnabled(id: PluginId): bool = enabled.contains(id)
+proc disable(id: PluginId) = enabled.excl(id)
 
-  # Generate a function for each step, parameterized by `S`
-  # each step will call doStep and in turn that will call all
-  # of the plugins subscribed to the step passed to doStep
+macro register*[S: enum](id: PluginId, step: S, fn: typed) =
+  let id = fmt"{id}|{step}"
 
-  # the user of this api will have to call the step functions manually
+  if not functionCount.hasKey(id):
+    functionCount[id] = newLit(0)
 
-  discard
+  var count = functionCount[id].intVal
+  functionCount[id].intVal = count + 1
+  functions[id & "|" & $count] = fn
 
-proc step*[S: enum](s: S) =
-  discard
-  # quote do:
-  #   for
+macro generatePluginSteps*[S: enum](step: S, predicate: untyped): auto =
+  result = nnkStmtList.newTree()
+
+  for key, fun in functions.pairs:
+    let xs = key.split '|'
+    let pluginId = xs[0]
+    let pluginStep = xs[1]
+
+    if pluginStep != $step:
+      continue
+
+    let typeImpl = getTypeImpl(fun)
+
+    var call = nnkCall.newTree(ident($fun))
+    var isEmpty = true
+
+    for arg in typeImpl[0].items:
+      isEmpty = false
+      if arg.kind == nnkIdentDefs:
+        let id = arg[0]
+        call.add(ident($id))
+
+    if isEmpty:
+      call.add(newEmptyNode())
+
+    var checkedCall = quote do:
+      if isEnabled(`pluginId`) and `predicate`(`pluginId`):
+        `call`
+    result.add(checkedCall)
+
+proc good(id: PluginId): bool {.inline.} = true
+template generatePluginSteps*(step: untyped): auto =
+  generatePluginSteps(step, good)
 
 when isMainModule:
-  proc load() =
+  type Aa = object
+  type Bb = object
+
+  proc gameLoad(aa: Aa) =
+    discard
+  proc gameUpdate() =
+    discard
+  proc testLoad(bb: Bb) =
+    discard
+  proc testUpdate() =
+    discard
+  proc testUpdate2() =
     discard
 
   type
@@ -48,13 +92,23 @@ when isMainModule:
       draw
       unload
 
-  "Hello".PluginId.add(load)
+  register("game", load, gameLoad)
+  register("game", update, gameUpdate)
 
-  generatePluginSteps[Steps]()
+  register("test", load, testLoad)
+  register("test", update, testUpdate)
+  register("test", update, testUpdate2)
 
-  var line: string
-  while true:
-    let ok = readLineFromStdin("> ", line)
-    if not ok:
-      break
-    echo(line)
+  var aa = Aa()
+  var bb = Bb()
+
+  expandMacros:
+    generatePluginSteps[Steps](load, shouldLoad)
+    generatePluginSteps[Steps](update)
+
+  # var line: string
+  # while true:
+  #   let ok = readLineFromStdin("> ", line)
+  #   if not ok:
+  #     break
+  #   echo(line)
