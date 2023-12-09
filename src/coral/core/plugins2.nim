@@ -22,19 +22,22 @@ var loaders: HashSet[PluginId]
 # macro add*[S: enum](pluginId: PluginId, step: S, fun: untyped) =
 #   functions.add((pluginId, step, fun))
 
-proc shouldLoad(id: PluginId): bool = loaders.contains(id)
-proc isEnabled(id: PluginId): bool = enabled.contains(id)
-proc disable(id: PluginId) = enabled.excl(id)
+proc shouldLoad*(id: PluginId): bool = loaders.contains(id)
+proc isEnabled*(id: PluginId): bool = enabled.contains(id)
+proc disable*(id: PluginId) = enabled.excl(id)
+proc enable*(id: PluginId) = enabled.incl(id)
 
-macro register*[S: enum](id: PluginId, step: S, fn: typed) =
-  let id = fmt"{id}|{step}"
+macro register*[S: enum](id: PluginId, step: S, fn: typed): auto =
+  let idStep = fmt"{id}|{step}"
 
-  if not functionCount.hasKey(id):
-    functionCount[id] = newLit(0)
+  if not functionCount.hasKey(idStep):
+    functionCount[idStep] = newLit(0)
 
-  var count = functionCount[id].intVal
-  functionCount[id].intVal = count + 1
-  functions[id & "|" & $count] = fn
+  var count = functionCount[idStep].intVal
+  functionCount[idStep].intVal = count + 1
+  functions[idStep & "|" & $count] = fn
+  quote do:
+    enable(`id`)
 
 macro generatePluginSteps*[S: enum](step: S, predicate: untyped): auto =
   result = nnkStmtList.newTree()

@@ -1,5 +1,5 @@
 proc loadMenu*() =
-  discard
+  echo "LOADED MAIN MENU"
 
 proc updateMenu*() =
   discard
