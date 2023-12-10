@@ -42,6 +42,18 @@ macro setPriority*(id: PluginId, p = 0) =
   if not priority.hasKey($id):
     priority[$id] = p
 
+macro descending*(ids: varargs[PluginId]): auto =
+  var idents = ids.toSeq()
+  result = nnkStmtList.newTree()
+  var idx = idents.len()
+  for id in idents:
+    let index = idents.len() - idx
+    result.add(
+      quote do:
+      setPriority(`id`, `index`)
+    )
+    dec idx
+
 macro register*[S: enum](id: PluginId, step: S, fn: typed) =
   let idStep = fmt"{id}|{step}"
 
