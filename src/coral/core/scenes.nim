@@ -19,6 +19,9 @@ proc shouldLoad*(id: SceneId): bool =
   if result:
     loadSet.excl(id)
 
+proc canLoadScene*(id: SceneId): bool =
+  result = loadSet.contains(id)
+
 proc registerScene*(id: SceneId) =
   allScenes.incl(id)
 

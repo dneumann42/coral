@@ -10,5 +10,9 @@ plugin(ResourceLoader):
 
 test "it can play games":
   var game = Game.init(title = "Test game", startingScene = "MenuScene".some)
+  onScene("MenuAux", "MenuScene")
+
+  setPriority("MenuAux", -100)
+
   expandMacros:
     game.start()

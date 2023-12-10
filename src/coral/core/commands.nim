@@ -19,6 +19,8 @@ iterator items*(commands: Commands): Command =
 proc init*(T: type Commands): T =
   T(stack: @[])
 
+proc clear*(self: var Commands) =
+  self.stack.setLen(0)
 
 proc pushScene*(self: var Commands, id: string): var Commands {.discardable.} =
   self.stack.add(PushScene(id))
