@@ -1,5 +1,5 @@
 import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
-    strutils, sets, sdl2, sdl2/image
+    strutils, sets, sdl2, sdl2/image, print
 import std/[paths, re]
 import std/md5
 import ../platform/resources
@@ -41,7 +41,7 @@ type
     id*: string
     images*: seq[OutImage]
 
-  Atlas* = object
+  Atlas* = ref object
     config*: Config
     sprites*: Table[string, Sprite]
     imageGroups*: Table[string, ImageGroup]

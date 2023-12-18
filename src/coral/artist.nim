@@ -1,2 +1,2 @@
-import artist/[artist, atlas]
-export artist, atlas
+import artist/[artist, atlas, palette]
+export artist, atlas, palette

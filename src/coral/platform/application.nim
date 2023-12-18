@@ -148,6 +148,9 @@ proc intersects*(a, b: tuple[x, y, w, h: SomeNumber]): bool =
 proc intersects*(p: Vec2, a: tuple[x, y, w, h: float|float32]): bool =
   p.x > a.x and p.x < a.x + a.w and p.y > a.y and p.y < a.y + a.h
 
+proc intersects*(p: Vec2, x, y, w, h: float|float32): bool =
+  p.x > x and p.x < x + w and p.y > y and p.y < y + h
+
 proc closeWindow*() =
   sdl2.quit()
   if not getWindow().isNil:

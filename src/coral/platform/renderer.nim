@@ -137,7 +137,7 @@ proc text*(
   color = color(1.0, 1.0, 1.0, 1.0)
 ) =
   var texture = block:
-    let id = $(&"{tex}${$color}").toMD5
+    let id = tex
     let c = color.rgba
     if ren.texts.hasKey(id):
       ren.texts[id]

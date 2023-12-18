@@ -19,7 +19,7 @@ var actions = {
 proc down*(b: Binding): bool =
   result = b.key.map(isDown).get(false)
 
-proc press*(b: Binding): bool =
+proc pressed*(b: Binding): bool =
   result = b.key.map(isPressed).get(false)
 
 proc up*(b: Binding): bool =
@@ -31,17 +31,29 @@ proc release*(b: Binding): bool =
 proc down*(key: KeyboardKey): bool =
   result = key.isDown()
 
-proc press*(key: KeyboardKey): bool =
+proc pressed*(key: KeyboardKey): bool =
   result = key.isPressed()
 
 proc up*(key: KeyboardKey): bool =
   result = key.isUp()
 
-proc release*(key: KeyboardKey): bool =
+proc released*(key: KeyboardKey): bool =
   result = key.isReleased()
+
+proc down*(mb: MouseButton): bool =
+  result = mb.isDown()
+
+proc up*(mb: MouseButton): bool =
+  result = mb.isUp()
+
+proc pressed*(mb: MouseButton): bool =
+  result = mb.isPressed()
+
+proc released*(mb: MouseButton): bool =
+  result = mb.isReleased()
 
 proc input*(id: string): Binding =
   actions[id]
 
 proc mousePosition*(): Vec2 =
-  application.mousePosition() 
+  application.mousePosition()

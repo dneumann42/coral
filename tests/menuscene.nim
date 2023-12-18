@@ -8,7 +8,7 @@ plugin MenuScene:
     discard
 
   proc update(cmds: var Commands) =
-    if space.press:
+    if space.pressed:
       cmds.pushScene("GameScene")
 
   proc draw(artist: var Artist) =
