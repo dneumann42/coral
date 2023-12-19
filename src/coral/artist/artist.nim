@@ -118,6 +118,12 @@ template cameraLayer*(artist: var Artist, depth: int, body: untyped) =
   unsetCamera()
   endCanvas()
 
+proc clear*(artist: var Artist) =
+  for layer in artist.layers.mitems:
+    startCanvas(layer.target)
+    clear()
+    endCanvas()
+
 proc paint*(artist: var Artist) =
   for layer in artist.layers.sorted((a, b) => a.depth.cmp(b.depth)):
     let (w, h) = layer.size().tup

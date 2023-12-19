@@ -88,5 +88,6 @@ template start*(game: var Game) =
       flush(events)
 
       withDrawing:
+        clear(artist)
         generatePluginStep[GameStep](draw, isActive)
         paint(artist)
