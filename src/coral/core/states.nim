@@ -22,6 +22,12 @@ proc mget*[T](st: GameState, t: typedesc[T]): ptr T =
         T)).AbstractGameState
   result = ((GenericGameState[T])states[name(t)]).state.addr
 
+proc mget2*[T](st: GameState, t: typedesc[T]): lent var T =
+  if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
+    states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(
+        T)).AbstractGameState
+  result = ((GenericGameState[T])states[name(t)]).state
+
 proc get*[T](st: GameState, t: typedesc[T]): T =
   if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
     states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(

@@ -242,6 +242,12 @@ proc text*(
 ) =
   ren.text(tex, res.get(Font, fontId), x, y, color)
 
+proc line*(
+  startX, startY, endX, endY: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)
+) =
+  ren.line(startX, startY, endX, endY, color)
+
 proc rect*(
   x, y, w, h: SomeNumber,
   origin = vec2(),

@@ -91,6 +91,17 @@ proc getTransformedRect(x, y, w, h: SomeNumber): Rect =
     cint(w.float * zoom),
     cint(h.float * zoom))
 
+proc line*(
+  ren: Renderer,
+  startX, startY, endX, endY: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)
+) =
+  ren.pushColor(color):
+    var (startPos, _) = offsetZoom(vec2(startX.float, startY.float))
+    var (endPos, zoom) = offsetZoom(vec2(endX.float, endY.float))
+    endPos *= zoom
+    getRenderer().drawLineF(startPos.x, startPos.y, endPos.x, endPos.y)
+
 proc rect*(
   ren: Renderer,
   x, y,
