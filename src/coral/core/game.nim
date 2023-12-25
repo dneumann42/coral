@@ -1,6 +1,7 @@
-import events, options, commands, patty, states, ents, plugins2, macros, scenes,
+import events, options, commands, patty, states, plugins, macros, scenes,
     tables, sets, sequtils
 import ../artist/artist
+import ../entities/ents
 import ../platform
 
 type

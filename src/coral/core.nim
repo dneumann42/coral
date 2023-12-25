@@ -1,3 +1,3 @@
-import core/[commands, ents, events, game, inputs, plugins2, scenes, states, typeids]
+import core/[commands, events, game, inputs, plugins, scenes, states, typeids]
 
-export commands, ents, events, game, inputs, plugins2, scenes, states, typeids
+export commands, events, game, inputs, plugins, scenes, states, typeids

@@ -1,6 +1,6 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
     vmath, strutils, unittest, options, sequtils
-import typeids, jsony, sets, strformat
+import ../core/typeids, jsony, sets, strformat
 
 type
   EntId* = int
@@ -69,7 +69,7 @@ proc initCompBuff*[T](): CompBuff[T] =
   result.name = name(T)
 
 proc isDead*(ents: var Ents, entId: EntId): bool =
-  false
+  ents.dead.contains(entId.int)
 
 proc add*[T](buff: var CompBuff[T], comp: T): int =
   if buff.dead.len > 0:
@@ -140,10 +140,6 @@ proc a*[T](ent: EntAdd, c: T): EntAdd {.discardable.} =
     idx = buff.add(c)
   ent.ents.entities[ent.id].comps[id] = idx
   result = ent
-
-proc kill*(ents: var Ents, entId: EntId) =
-  # TODO: delete entity from views
-  discard
 
 proc invalidateViewsWith(ents: var Ents, entId: EntId) =
   for view in ents.views.mitems:
