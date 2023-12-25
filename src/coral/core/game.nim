@@ -1,8 +1,10 @@
 import events, options, commands, patty, states, plugins, macros, scenes,
-    tables, sets, sequtils
+    tables, sets, sequtils, json, typetraits, fusion/matching
 import ../artist/artist
 import ../entities/ents
 import ../platform
+import coral/core
+import coral/core/profiles
 
 type
   GameStep* = enum
@@ -16,6 +18,8 @@ type
     shouldExit: bool
     startingScene: string
     title: string
+    name: string
+    profile: Option[Profile]
 
 proc `=sink`(x: var Game; y: Game) {.error.}
 proc `=copy`(x: var Game; y: Game) {.error.}
@@ -32,21 +36,41 @@ func resources*(game: var Game): var Resources =
 func state*(game: var Game): var GameState =
   game.state
 
-func init*(T: type Game; startingScene = none(SceneId); title = ""): T =
+func init*(T: type Game; name: string; startingScene = none(SceneId);
+    title = ""): T =
   T(startingScene: startingScene.get(""),
-    title: title)
+    title: title,
+    name: name)
 
 proc title*(game: Game): string = game.title
 
+proc loadProfile*(game: var Game; profileId: string; cmds: ptr Commands) =
+  var profile = Profile(name: profileId)
+  var states = profile.load() do (jn: string; js: JsonNode) -> JsonNode:
+    genMigrationFun(jn, js, [])
+  cmds[] = Commands.load(states[name(Commands)], Commands.version)
+
 proc commandDispatch*(game: var Game; commands: var Commands) =
-  for cmd in commands:
-    match cmd:
-      PushScene(pushId): pushScene(pushId)
-      ChangeScene(changeId): discard changeScene(changeId)
-      BackScene: discard backScene()
-      Exit: game.shouldExit = true
-      SaveProfile: discard
+  var commandQueue = commands.toSeq()
   commands.clear()
+  for cmd in commandQueue:
+    match cmd:
+      PushScene(pushId):
+        pushScene(pushId)
+      ChangeScene(changeId):
+        discard changeScene(changeId)
+      BackScene:
+        discard backScene()
+      Exit:
+        game.shouldExit = true
+      NewProfile(newId):
+        let profile = Profile(name: newId, gameName: game.name)
+        saveProfile(profile, [(commands, Commands)])
+        game.profile = some(profile)
+      SaveProfile:
+        if Some(@profile) ?= game.profile:
+          saveProfile(profile, [(commands, Commands)])
+      LoadProfile(loadId): discard
 
 template start*(game: var Game) =
   block:
@@ -70,7 +94,10 @@ template start*(game: var Game) =
       result = activeScene().get() == id
 
     proc shouldLoadScene(id: PluginId): bool =
-      result = shouldLoad(id) and isActive(id)
+      result = id.isActive() and id.shouldLoad()
+
+    proc isActiveAndReady(id: PluginId): bool =
+      result = id.isActive() and not id.shouldLoad(keep = true)
 
     initializeWindow(title = game.title)
     pushScene(game.startingScene)
@@ -79,7 +106,7 @@ template start*(game: var Game) =
     while updateWindow():
       if game.shouldExit:
         closeWindow()
-        continue
+        break
 
       if shouldUpdate():
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
@@ -88,7 +115,11 @@ template start*(game: var Game) =
       game.commandDispatch(cmds)
       flush(events)
 
+      if game.shouldExit:
+        closeWindow()
+        break
+
       withDrawing:
         clear(artist)
-        generatePluginStep[GameStep](draw, isActive)
+        generatePluginStep[GameStep](draw, isActiveAndReady)
         paint(artist)

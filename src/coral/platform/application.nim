@@ -1,4 +1,4 @@
-import sdl2, tables, chroma, opengl, vmath, std/logging
+import sdl2, tables, chroma, opengl, vmath, std/[logging, paths]
 import state, resources, renderer, keys, strformat
 import sdl2/ttf
 
@@ -90,6 +90,10 @@ proc initializeWindow*(title = "Window") =
   res = Resources.init()
 
 proc windowSize*(): Vec2 = renderer.windowSize()
+
+proc getSaveDirectoryPath*(organization, app: string): Path =
+  var path = $getPrefPath(organization.cstring, app.cstring)
+  path.Path
 
 proc isDown*(key: KeyboardKey): bool =
   if inputs.hasKey(key):

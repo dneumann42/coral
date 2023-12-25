@@ -28,5 +28,5 @@ macro generateConstants(): untyped =
       quote do: 
         const `id`* = parseHex($`k`))
 
-expandMacros:
-  generateConstants()
+# expandMacros:
+generateConstants()

@@ -23,7 +23,7 @@ macro plugin*(id, blk): auto =
       newIdStr = $child[0] & $id
       newId = ident(newIdStr)
 
-    var 
+    var
       newProc = nnkProcDef.newTree(nnkPostfix.newTree(ident("*"), newId))
       idx = 0
 

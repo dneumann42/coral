@@ -8,15 +8,15 @@ var sceneStack: seq[SceneId]
 var loadSet: HashSet[string]
 
 proc sceneId*[T](sc: T): SceneId =
-  name type(sc)
+  name(type(sc))
 
 proc activeScene*(): Option[string] =
   if sceneStack.len() > 0:
     result = sceneStack[^1].some
 
-proc shouldLoad*(id: SceneId): bool =
+proc shouldLoad*(id: SceneId, keep = false): bool =
   result = loadSet.contains(id)
-  if result:
+  if result and not keep:
     loadSet.excl(id)
 
 proc canLoadScene*(id: SceneId): bool =
