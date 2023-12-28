@@ -36,9 +36,10 @@ proc `%`*(c: Command): JsonNode =
       result = %* {"kind": "Exit"}
 
 proc `%`*(cs: seq[Command]): JsonNode =
-  result = %* []
-  for c in cs:
-    result.add( % c)
+  # result = %* []
+  # for c in cs:
+  #   result.add( % c)
+  discard
 
 proc `%`*(c: Commands): JsonNode =
   result = %* {"stack": c.stack}

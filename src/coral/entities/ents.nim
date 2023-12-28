@@ -1,15 +1,15 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
-    vmath, strutils, unittest, options, sequtils
+    vmath, strutils, unittest, options, sequtils, print
 import ../core/typeids, jsony, sets, strformat
 
 type
   EntId* = int
 
-  SomeCompBuff* = ref object of RootObj
+  SomeCompBuff* = object of RootObj
     name*: string
     dead: seq[int]
 
-  CompBuff*[T] = ref object of SomeCompBuff
+  CompBuff*[T] = object of SomeCompBuff
     components: seq[T]
 
   View* = ref object
@@ -19,7 +19,7 @@ type
 
   Ent = object
     id: EntId
-    comps: Table[TypeId, int]
+    comps: TableRef[TypeId, int]
 
   Ents* = object
     dead: seq[int]
@@ -29,7 +29,7 @@ type
     compBuffs: Table[TypeId, SomeCompBuff]
 
 proc ent*(): Ent =
-  result.comps = initTable[TypeId, int]()
+  result.comps = newTable[TypeId, int]()
 
 proc new(T: type View, keys = newSeq[TypeId]()): T = T(keys: keys, entities: @[])
 proc new(T: type View, keys: varargs[TypeId]): T = T.new(@keys)
@@ -64,14 +64,14 @@ iterator entities*(ents: var Ents): EntId =
       yield ent.id
 
 proc initCompBuff*[T](): CompBuff[T] =
-  result = new(CompBuff[T])
+  result = CompBuff[T]()
   result.components = @[]
   result.name = name(T)
 
 proc isDead*(ents: var Ents, entId: EntId): bool =
   ents.dead.contains(entId.int)
 
-proc add*[T](buff: var CompBuff[T], comp: T): int =
+proc add*[T](buff: var CompBuff[T], comp: sink T): int =
   if buff.dead.len > 0:
     let idx = buff.dead.pop()
     buff.components[idx] = comp
@@ -86,8 +86,8 @@ proc del*(buff: var SomeCompBuff, idx: int) =
 proc get*[T](buff: CompBuff[T], idx: int): T =
   buff.components[idx]
 
-proc mget*[T](buff: var CompBuff[T], idx: int): ptr T =
-  result = buff.components[idx].addr
+proc mget*[T](buff: var CompBuff[T], idx: int): lent T =
+  result = buff.components[idx]
 
 proc init*(T: type Ents): T =
   T(entities: @[],
@@ -102,20 +102,19 @@ proc spawn*(ents: var Ents): EntId =
     ## TODO: Reuse memory
     ents.entities[result] = Ent(
       id: result,
-      comps: initTable[TypeId, int]()
+      comps: newTable[TypeId, int]()
     )
   else:
     result = ents.entities.len()
     ents.entities.add Ent(
       id: result,
-      comps: initTable[TypeId, int]())
+      comps: newTable[TypeId, int]())
 
   # TODO: only invalidate the views that match the entities components
   for view in ents.views:
     view.valid = false
 
-proc add*[T](ents: var Ents, entId: EntId, comp: T): var Ents {.discardable.} =
-  result = ents
+proc add*[T](ents: var Ents, entId: EntId, comp: sink T) =
   let id = getTypeId(T)
   if not ents.compBuffs.hasKey(id):
     ents.compBuffs[id] = initCompBuff[T]()
@@ -123,34 +122,12 @@ proc add*[T](ents: var Ents, entId: EntId, comp: T): var Ents {.discardable.} =
   var
     buff = cast[CompBuff[T]](ents.compBuffs[id])
     idx = buff.add(comp)
-  ents.entities[entId].comps[name] = idx
-
-type
-  EntAdd = ref object
-    id: EntId
-    ents: var Ents
-
-proc a*[T](ent: EntAdd, c: T): EntAdd {.discardable.} =
-  let id = getTypeId(T)
-  if not ent.ents.compBuffs.hasKey(id):
-    ent.ents.compNames[id] = name(T)
-    ent.ents.compBuffs[id] = initCompBuff[T]()
-  var
-    buff = cast[CompBuff[T]](ent.ents.compBuffs[id])
-    idx = buff.add(c)
-  ent.ents.entities[ent.id].comps[id] = idx
-  result = ent
+  ents.entities[entId].comps[id] = idx
 
 proc invalidateViewsWith(ents: var Ents, entId: EntId) =
   for view in ents.views.mitems:
     if view.entities.contains(entId):
       view.valid = false
-
-converter toEnts*(entAdd: EntAdd): var Ents =
-  result = entAdd.ents
-
-proc add*(ents: var Ents, e: EntId): EntAdd {.discardable.} =
-  result = EntAdd(ents: ents, id: e)
 
 proc remove*[T: typedesc](ents: var Ents, id: EntId, t: T) =
   if not ents.has(id, t):
@@ -221,9 +198,9 @@ macro get*(es, id: untyped, types: openArray[typedesc]): untyped =
 
 proc mget*[T: typedesc](ents: var Ents, entId: EntId, t: T): auto =
   var
-    name = getTypeId(t)
-    buff = cast[CompBuff[T]](ents.compBuffs[name])
-  result = buff.mget(ents.entities[entId].comps[name])
+    id = getTypeId(t)
+    buff = cast[CompBuff[T]](ents.compBuffs[id])
+  result = buff.mget(ents.entities[entId].comps[id])
 
 macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
@@ -311,7 +288,7 @@ proc load*(code: string, comp: (node: JsonNode) -> SomeCompBuff): Ents =
   result = Ents.init()
 
   for ent in js["entities"]:
-    var ts = initTable[TypeId, int]()
+    var ts = newTable[TypeId, int]()
     for key in ent["comps"].keys():
       ts[parseInt(key)] = ent["comps"][key].getInt
     result.entities.add(Ent(id: ent["id"].getInt, comps: ts))
@@ -335,7 +312,6 @@ when isMainModule:
     var
       es = Ents.init()
       id = es.spawn()
-    es.add(id).a(A()).a(B()).a(C())
 
     test "adding and getting components":
       let (a, b, c) = es.get(id, [A, B, C])
@@ -357,7 +333,6 @@ when isMainModule:
     var
       es = Ents.init()
       id = es.spawn()
-    es.add(id).a(A()).a(B())
 
     test "checking components":
       check(getTypeId(A) != getTypeId(B))
@@ -373,10 +348,6 @@ when isMainModule:
       ae = es.spawn()
       be = es.spawn()
       ce = es.spawn()
-
-    es.add(ae).a(A(value: 1.0)).a(B()).a(C())
-    es.add(be).a(A(value: 2.0)).a(B())
-    es.add(ce).a(A(value: 3.0))
 
     test "can match keys":
       let view = View.new(getTypeId(A), getTypeId(B), getTypeId(C))

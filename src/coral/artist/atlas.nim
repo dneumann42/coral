@@ -1,5 +1,5 @@
 import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
-    strutils, sets, sdl2, sdl2/image, print
+    strutils, sets, sdl2, sdl2/image, print, jsony
 import std/[paths, re]
 import std/md5
 import ../platform/resources
@@ -34,14 +34,16 @@ type
   OutRect* = object
     id: string
     region: Region
+
   OutImage* = object
     id*: string
     path*: string
+
   ImageGroup* = object
     id*: string
     images*: seq[OutImage]
 
-  Atlas* = ref object
+  Atlas* = object
     config*: Config
     sprites*: Table[string, Sprite]
     imageGroups*: Table[string, ImageGroup]
@@ -55,6 +57,9 @@ proc equals(a, b: Table[string, string]): bool =
 
 proc init(T: type Sprite, id: string, x, y, w, h: float): T =
   T(id: id, x: x, y: y, w: w, h: h)
+
+proc init*(T: type Atlas): T =
+  T()
 
 proc toOutRect(r: Sprite): OutRect =
   result.id = r.id
@@ -135,12 +140,12 @@ proc generateSpriteAtlas*(path: string): SpriteAtlas =
   ## Render spritesheet to canvas
   startCanvas(canvas)
   for spr in result.sprites:
-    let 
+    let
       tex = textures[spr.id]
       (tw, th) = tex.size()
     texture(
-      tex, 
-      (0.0, 0.0, tw.float, th.float), 
+      tex,
+      (0.0, 0.0, tw.float, th.float),
       (spr.x, spr.y, tw.float, th.float)
     )
 
@@ -149,9 +154,11 @@ proc generateSpriteAtlas*(path: string): SpriteAtlas =
       surface.pixels, surface.pitch)
   discard savePNG(surface, "res" / "textures" / (imageId & "_atlas.png"))
   endCanvas()
-  
+
 proc createAtlasData*(config: Config): Atlas =
-  result = Atlas()
+  result = Atlas(
+    imageGroups: initTable[string, ImageGroup]()
+  )
 
   for atlas in config.atlases:
     result.spriteAtlases.add(generateSpriteAtlas(config.dir / atlas))
@@ -188,7 +195,7 @@ proc getSpriteImage*(atlas: Atlas, spriteId: string): string =
         return spriteAtlas.imageId
 
 proc getSpriteRegion*(atlas: Atlas, spriteId: string): Rectangle =
-  let imageId = atlas.getSpriteImage(spriteId) 
+  let imageId = atlas.getSpriteImage(spriteId)
   for spriteAtlas in atlas.spriteAtlases:
     if spriteAtlas.imageId == imageId:
       for spr in spriteAtlas.sprites:
@@ -211,6 +218,27 @@ proc loadConfig*(atlasDir: string): Config =
 
 proc load*(T: type Atlas, atlasDirs: string): T =
   readFile(atlasDirs / "atlas.json").parseJson().to(T)
+
+proc loadAtlas*(atlas: var Atlas, atlasPath: string) =
+  let loaded = "res/textures".loadConfig().createAtlasData()
+  atlas.config = loaded.config
+  atlas.imageGroups = loaded.imageGroups
+  atlas.spriteAtlases = loaded.spriteAtlases
+  atlas.sprites = loaded.sprites
+  writeFile(atlasPath / "atlas.json", atlas.toJson().parseJson().pretty)
+
+proc getImageGroup*(atlas: Atlas, id: string): lent ImageGroup =
+  if not atlas.imageGroups.hasKey(id):
+    raise CatchableError.newException("Image Group not found: " & id)
+  result = atlas.imageGroups[id]
+
+proc getImageGroupImages*(atlas: Atlas, id: string): lent seq[OutImage] =
+  if not atlas.imageGroups.hasKey(id):
+    raise CatchableError.newException("Image Group not found: " & id)
+  result = atlas.getImageGroup(id).images
+
+proc spriteRegion*(atlas: Atlas, spriteId: string): Rectangle =
+  result = atlas.getSpriteRegion(spriteId)
 
 when isMainModule:
   import cligen

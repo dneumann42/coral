@@ -1,4 +1,4 @@
-import sets, typetraits, sequtils, options
+import sets, typetraits, sequtils, options, fusion/matching
 import std/logging
 
 type SceneId* = string
@@ -29,12 +29,15 @@ proc isScene*(id: SceneId): bool =
   allScenes.contains(id)
 
 proc pushScene*(id: SceneId) =
+  echo id
   sceneStack.add(id)
   loadSet.incl(id)
 
 proc popScene*(): Option[SceneId] =
   if len(sceneStack) > 0:
     result = sceneStack.pop().some
+  if Some(@sc) ?= activeScene():
+    loadSet.incl(sc)
 
 proc backScene*(): Option[SceneId] =
   result = popScene()

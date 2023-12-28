@@ -1,6 +1,6 @@
 import events, options, commands, patty, states, plugins, macros, scenes,
     tables, sets, sequtils, json, typetraits, fusion/matching
-import ../artist/artist
+import ../artist/[artist, atlas]
 import ../entities/ents
 import ../platform
 import coral/core
@@ -72,32 +72,35 @@ proc commandDispatch*(game: var Game; commands: var Commands) =
           saveProfile(profile, [(commands, Commands)])
       LoadProfile(loadId): discard
 
+proc isActive(id: PluginId): bool =
+  if not isScene(id) and isSceneSpecific.hasKey(id) and isSceneSpecific[
+      id].len > 0:
+    if sequtils.any(isSceneSpecific[id], isActive):
+      return true
+    else:
+      return false
+  if not isScene(id) or activeScene().isNone:
+    return true
+  result = activeScene().get("") == id
+
+proc shouldLoadScene(id: PluginId): bool =
+  result = id.isActive() and id.shouldLoad()
+  if result:
+    echo "LOADING ", id
+
+proc isActiveAndReady(id: PluginId): bool =
+  result = id.isActive() and not id.shouldLoad(keep = true)
+
 template start*(game: var Game) =
   block:
     var
       cmds {.inject.} = Commands.init()
       artist {.inject.} = Artist.init()
+      atlas {.inject.} = Atlas.init()
       states {.inject.} = GameState.init()
       ents {.inject.} = Ents.init()
       events {.inject.} = Events.init()
       resources {.inject.} = Resources.init()
-
-    proc isActive(id: PluginId): bool =
-      if not isScene(id) and isSceneSpecific.hasKey(id) and isSceneSpecific[
-          id].len > 0:
-        if sequtils.any(isSceneSpecific[id], isActive):
-          return true
-        else:
-          return false
-      if not isScene(id) or activeScene().isNone:
-        return true
-      result = activeScene().get() == id
-
-    proc shouldLoadScene(id: PluginId): bool =
-      result = id.isActive() and id.shouldLoad()
-
-    proc isActiveAndReady(id: PluginId): bool =
-      result = id.isActive() and not id.shouldLoad(keep = true)
 
     initializeWindow(title = game.title)
     pushScene(game.startingScene)
