@@ -1,9 +1,9 @@
 import tables, typetraits, typeinfo, std/[enumerate], macros, json, sugar,
-    vmath, strutils, unittest, options, sequtils, print
+    vmath, strutils, unittest, options, sequtils, print, hashes
 import ../core/typeids, jsony, sets, strformat
 
 type
-  EntId* = int
+  EntId* = distinct int
 
   SomeCompBuff* = object of RootObj
     name*: string
@@ -22,11 +22,14 @@ type
     comps: TableRef[TypeId, int]
 
   Ents* = object
-    dead: seq[int]
+    dead: seq[EntId]
     entities: seq[Ent]
     views: seq[View]
     compNames: Table[TypeId, string]
     compBuffs: Table[TypeId, SomeCompBuff]
+
+proc `==`*(a, b: EntId): bool {.borrow.}
+proc hash(a: EntId): Hash {.borrow.}
 
 proc ent*(): Ent =
   result.comps = newTable[TypeId, int]()
@@ -69,25 +72,28 @@ proc initCompBuff*[T](): CompBuff[T] =
   result.name = name(T)
 
 proc isDead*(ents: var Ents, entId: EntId): bool =
-  ents.dead.contains(entId.int)
+  ents.dead.contains(entId)
 
-proc add*[T](buff: var CompBuff[T], comp: sink T): int =
+proc add*[T](buff: ptr CompBuff[T], comp: sink T): int =
   if buff.dead.len > 0:
-    let idx = buff.dead.pop()
-    buff.components[idx] = comp
+    let idx = buff[].dead.pop()
+    buff[].components[idx] = comp
     result = idx
   else:
-    result = len(buff.components)
-    buff.components.add(comp)
+    result = len(buff[].components)
+    buff[].components.add(comp)
 
 proc del*(buff: var SomeCompBuff, idx: int) =
   buff.dead.add(idx)
 
-proc get*[T](buff: CompBuff[T], idx: int): T =
+proc get*[T](buff: CompBuff[T], idx: int): lent T =
   buff.components[idx]
 
 proc mget*[T](buff: var CompBuff[T], idx: int): lent T =
   result = buff.components[idx]
+proc mget*[T](buff: ptr CompBuff[T], idx: int): lent T =
+  echo(buff[])
+  result = buff[].components[idx]
 
 proc init*(T: type Ents): T =
   T(entities: @[],
@@ -100,12 +106,12 @@ proc spawn*(ents: var Ents): EntId =
     result = ents.dead.pop()
 
     ## TODO: Reuse memory
-    ents.entities[result] = Ent(
+    ents.entities[result.int] = Ent(
       id: result,
       comps: newTable[TypeId, int]()
     )
   else:
-    result = ents.entities.len()
+    result = ents.entities.len().EntId
     ents.entities.add Ent(
       id: result,
       comps: newTable[TypeId, int]())
@@ -120,9 +126,9 @@ proc add*[T](ents: var Ents, entId: EntId, comp: sink T) =
     ents.compBuffs[id] = initCompBuff[T]()
     ents.compNames[id] = name(T)
   var
-    buff = cast[CompBuff[T]](ents.compBuffs[id])
+    buff = cast[ptr CompBuff[T]](ents.compBuffs[id].addr)
     idx = buff.add(comp)
-  ents.entities[entId].comps[id] = idx
+  ents.entities[entId.int].comps[id] = idx
 
 proc invalidateViewsWith(ents: var Ents, entId: EntId) =
   for view in ents.views.mitems:
@@ -134,13 +140,13 @@ proc remove*[T: typedesc](ents: var Ents, id: EntId, t: T) =
     return
 
   var typeId = getTypeId(T)
-  var e = ents.entities[id].addr
+  var e = ents.entities[id.int].addr
   ents.compBuffs[typeId].del(e.comps[typeId])
   e.comps.del(typeId)
   ents.invalidateViewsWith(id)
 
 proc del*(ents: var Ents, id: EntId) =
-  var e = ents.entities[id]
+  var e = ents.entities[id.int]
   ents.dead.add(id)
 
   for compId in e.comps.keys:
@@ -150,13 +156,13 @@ proc del*(ents: var Ents, id: EntId) =
 
 proc has*(es: Ents, id: EntId, t: TypeId): bool =
   if not es.dead.contains(id):
-    es.entities[id].comps.hasKey(t)
+    es.entities[id.int].comps.hasKey(t)
   else:
     false
 
 proc has*(es: Ents, id: EntId, t: typedesc): bool =
   if not es.dead.contains(id):
-    es.entities[id].comps.hasKey(getTypeId(t))
+    es.entities[id.int].comps.hasKey(getTypeId(t))
   else:
     false
 
@@ -184,7 +190,7 @@ proc get*[T: typedesc](ents: Ents, entId: EntId, t: T): auto =
   var
     name = getTypeId(T)
     buff = cast[CompBuff[T]](ents.compBuffs[name])
-  result = buff.get(ents.entities[entId].comps[name])
+  result = buff.get(ents.entities[entId.int].comps[name])
 
 macro get*(es, id: untyped, types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
@@ -199,8 +205,9 @@ macro get*(es, id: untyped, types: openArray[typedesc]): untyped =
 proc mget*[T: typedesc](ents: var Ents, entId: EntId, t: T): auto =
   var
     id = getTypeId(t)
-    buff = cast[CompBuff[T]](ents.compBuffs[id])
-  result = buff.mget(ents.entities[entId].comps[id])
+    buffPtr: ptr SomeCompBuff = ents.compBuffs[id].addr
+    buff = cast[ptr CompBuff[T]](buffPtr)
+  result = buff.mget(ents.entities[entId.int].comps[id])
 
 macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
@@ -291,7 +298,7 @@ proc load*(code: string, comp: (node: JsonNode) -> SomeCompBuff): Ents =
     var ts = newTable[TypeId, int]()
     for key in ent["comps"].keys():
       ts[parseInt(key)] = ent["comps"][key].getInt
-    result.entities.add(Ent(id: ent["id"].getInt, comps: ts))
+    result.entities.add(Ent(id: ent["id"].getInt.EntId, comps: ts))
 
   for key in js["compNames"].keys():
     result.compNames[parseInt(key)] = js["compNames"][key].getStr
