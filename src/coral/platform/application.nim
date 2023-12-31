@@ -53,14 +53,14 @@ proc clockTimer*(): float =
 proc toKeyboardKey(code: Scancode): KeyboardKey =
   cast[KeyboardKey](code)
 
-proc initializeWindow*(title = "Window") =
+proc initializeWindow*(title: string) =
   sdlFailIf(not sdl2.init(INIT_VIDEO or INIT_TIMER or INIT_EVENTS)):
     "SDL2 initialiation failed"
 
   sdlFailIf(ttfInit() == False32, "SDL2 TTF failed to initialize")
 
   setWindow(createWindow(
-    title = "Hello, World",
+    title = title,
     x = SDL_WINDOWPOS_CENTERED,
     y = SDL_WINDOWPOS_CENTERED,
     w = 1280,

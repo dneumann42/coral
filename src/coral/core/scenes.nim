@@ -29,7 +29,6 @@ proc isScene*(id: SceneId): bool =
   allScenes.contains(id)
 
 proc pushScene*(id: SceneId) =
-  echo id
   sceneStack.add(id)
   loadSet.incl(id)
 

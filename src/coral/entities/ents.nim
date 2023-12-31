@@ -28,24 +28,30 @@ type
     compNames: Table[TypeId, string]
     compBuffs: Table[TypeId, SomeCompBuff]
 
+proc `=sink`*(x: var Ents; y: Ents) {.error.}
+proc `=copy`*(x: var Ents; y: Ents) {.error.}
+proc `=wasMoved`*(x: var Ents) {.error.}
+
 proc `==`*(a, b: EntId): bool {.borrow.}
-proc hash(a: EntId): Hash {.borrow.}
+proc hash*(a: EntId): Hash {.borrow.}
 
-proc ent*(): Ent =
-  result.comps = newTable[TypeId, int]()
+proc initEnt*(id: EntId): Ent =
+  result = Ent(
+    id: id,
+    comps: newTable[TypeId, int]())
 
-proc new(T: type View, keys = newSeq[TypeId]()): T = T(keys: keys, entities: @[])
-proc new(T: type View, keys: varargs[TypeId]): T = T.new(@keys)
-proc new(T: type View, keys: UncheckedArray[TypeId]): T = T.new(@keys)
+proc new(T: type View; keys = newSeq[TypeId]()): T = T(keys: keys, entities: @[])
+proc new(T: type View; keys: varargs[TypeId]): T = T.new(@keys)
+proc new(T: type View; keys: UncheckedArray[TypeId]): T = T.new(@keys)
 
-func hasKey*(view: View, key: TypeId): bool =
+func hasKey*(view: View; key: TypeId): bool =
   result = view.keys.contains(key)
 
 iterator keys*(view: View): TypeId =
   for k in view.keys:
     yield k
 
-proc keyMatch(view: View, keys: openArray[TypeId]): bool =
+proc keyMatch(view: View; keys: openArray[TypeId]): bool =
   if view.keys.len != keys.len:
     return false
   result = true
@@ -67,31 +73,36 @@ iterator entities*(ents: var Ents): EntId =
       yield ent.id
 
 proc initCompBuff*[T](): CompBuff[T] =
-  result = CompBuff[T]()
-  result.components = @[]
-  result.name = name(T)
+  result = CompBuff[T](
+    components: @[],
+    name: name(T),
+  )
 
-proc isDead*(ents: var Ents, entId: EntId): bool =
+proc isDead*(ents: var Ents; entId: EntId): bool =
   ents.dead.contains(entId)
 
-proc add*[T](buff: ptr CompBuff[T], comp: sink T): int =
+proc add*[T](buff: ptr CompBuff[T]; comp: T): int =
+  if buff.isNil:
+    raise ValueError.newException("Buffer is nil!")
   if buff.dead.len > 0:
-    let idx = buff[].dead.pop()
-    buff[].components[idx] = comp
-    result = idx
+    result = buff[].dead.pop()
+    buff[].components[result] = comp
   else:
-    result = len(buff[].components)
+    result = buff[].components.len()
     buff[].components.add(comp)
 
-proc del*(buff: var SomeCompBuff, idx: int) =
+    # if buff[].components.isNil:
+    #   raise CatchableError.newException("Components seq is nil")
+
+proc del*(buff: var SomeCompBuff; idx: int) =
   buff.dead.add(idx)
 
-proc get*[T](buff: CompBuff[T], idx: int): lent T =
+proc get*[T](buff: CompBuff[T]; idx: int): lent T =
   buff.components[idx]
 
-proc mget*[T](buff: var CompBuff[T], idx: int): lent T =
+proc mget*[T](buff: var CompBuff[T]; idx: int): lent T =
   result = buff.components[idx]
-proc mget*[T](buff: ptr CompBuff[T], idx: int): lent T =
+proc mget*[T](buff: ptr CompBuff[T]; idx: int): lent T =
   echo(buff[])
   result = buff[].components[idx]
 
@@ -102,25 +113,24 @@ proc init*(T: type Ents): T =
     compNames: initTable[TypeId, string]())
 
 proc spawn*(ents: var Ents): EntId =
-  if ents.dead.len > 0:
-    result = ents.dead.pop()
+  # if ents.dead.len > 0:
+  #   result = ents.dead.pop()
 
-    ## TODO: Reuse memory
-    ents.entities[result.int] = Ent(
-      id: result,
-      comps: newTable[TypeId, int]()
-    )
-  else:
-    result = ents.entities.len().EntId
-    ents.entities.add Ent(
-      id: result,
-      comps: newTable[TypeId, int]())
+  #   ## TODO: Reuse memory
+  #   ents.entities[result.int] = Ent(
+  #     id: result,
+  #     comps: newTable[TypeId, int]()
+  #   )
+  # else:
+  result = ents.entities.len().EntId
+  ents.entities.add(initEnt(result))
 
-  # TODO: only invalidate the views that match the entities components
-  for view in ents.views:
-    view.valid = false
+  # # TODO: only invalidate the views that match the entities components
+  # for view in ents.views:
+  #   view.valid = false
+  discard
 
-proc add*[T](ents: var Ents, entId: EntId, comp: sink T) =
+proc add*[T](ents: var Ents; entId: EntId; comp: sink T) =
   let id = getTypeId(T)
   if not ents.compBuffs.hasKey(id):
     ents.compBuffs[id] = initCompBuff[T]()
@@ -130,12 +140,12 @@ proc add*[T](ents: var Ents, entId: EntId, comp: sink T) =
     idx = buff.add(comp)
   ents.entities[entId.int].comps[id] = idx
 
-proc invalidateViewsWith(ents: var Ents, entId: EntId) =
+proc invalidateViewsWith(ents: var Ents; entId: EntId) =
   for view in ents.views.mitems:
     if view.entities.contains(entId):
       view.valid = false
 
-proc remove*[T: typedesc](ents: var Ents, id: EntId, t: T) =
+proc remove*[T: typedesc](ents: var Ents; id: EntId; t: T) =
   if not ents.has(id, t):
     return
 
@@ -145,7 +155,7 @@ proc remove*[T: typedesc](ents: var Ents, id: EntId, t: T) =
   e.comps.del(typeId)
   ents.invalidateViewsWith(id)
 
-proc del*(ents: var Ents, id: EntId) =
+proc del*(ents: var Ents; id: EntId) =
   var e = ents.entities[id.int]
   ents.dead.add(id)
 
@@ -154,13 +164,13 @@ proc del*(ents: var Ents, id: EntId) =
 
   ents.invalidateViewsWith(id)
 
-proc has*(es: Ents, id: EntId, t: TypeId): bool =
+proc has*(es: Ents; id: EntId; t: TypeId): bool =
   if not es.dead.contains(id):
     es.entities[id.int].comps.hasKey(t)
   else:
     false
 
-proc has*(es: Ents, id: EntId, t: typedesc): bool =
+proc has*(es: Ents; id: EntId; t: typedesc): bool =
   if not es.dead.contains(id):
     es.entities[id.int].comps.hasKey(getTypeId(t))
   else:
@@ -178,21 +188,21 @@ template hasImpl() =
       nnkDotExpr.newTree(es, ident("has")), id, ident($t)))
   result = nnkStmtList.newTree(ts)
 
-macro has*(es, id: untyped, types: openArray[typedesc]): untyped = hasImpl()
+macro has*(es, id: untyped; types: openArray[typedesc]): untyped = hasImpl()
 
-proc has*(es: Ents, id: EntId, types: openArray[TypeId]): bool =
+proc has*(es: Ents; id: EntId; types: openArray[TypeId]): bool =
   result = true
   for t in types:
     if es.dead.contains(id) or not es.has(id, t):
       return false
 
-proc get*[T: typedesc](ents: Ents, entId: EntId, t: T): auto =
+proc get*[T: typedesc](ents: Ents; entId: EntId; t: T): auto =
   var
     name = getTypeId(T)
     buff = cast[CompBuff[T]](ents.compBuffs[name])
   result = buff.get(ents.entities[entId.int].comps[name])
 
-macro get*(es, id: untyped, types: openArray[typedesc]): untyped =
+macro get*(es, id: untyped; types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
 
   for t in types:
@@ -202,14 +212,14 @@ macro get*(es, id: untyped, types: openArray[typedesc]): untyped =
 
   result = nnkStmtList.newTree(vs)
 
-proc mget*[T: typedesc](ents: var Ents, entId: EntId, t: T): auto =
+proc mget*[T: typedesc](ents: var Ents; entId: EntId; t: T): auto =
   var
     id = getTypeId(t)
     buffPtr: ptr SomeCompBuff = ents.compBuffs[id].addr
     buff = cast[ptr CompBuff[T]](buffPtr)
   result = buff.mget(ents.entities[entId.int].comps[id])
 
-macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
+macro mget*(es, id: untyped; types: openArray[typedesc]): untyped =
   var vs = nnkPar.newTree()
   for t in types:
     vs.add(nnkCall.newTree(
@@ -217,7 +227,7 @@ macro mget*(es, id: untyped, types: openArray[typedesc]): untyped =
         id, ident($t)))
   result = nnkStmtList.newTree(vs)
 
-proc populate(ents: var Ents, view: View) =
+proc populate(ents: var Ents; view: View) =
   view.entities.setLen(0)
   for ent in ents.entities:
     if view.entities.contains(ent.id):
@@ -227,7 +237,7 @@ proc populate(ents: var Ents, view: View) =
       view.entities.add(ent.id)
   view.valid = true
 
-proc view*(ents: var Ents, ts: openArray[TypeId]): auto =
+proc view*(ents: var Ents; ts: openArray[TypeId]): auto =
   for view in ents.views.mitems:
     if view.keyMatch(ts):
       if not view.valid:
@@ -237,7 +247,7 @@ proc view*(ents: var Ents, ts: openArray[TypeId]): auto =
   ents.populate(result)
   ents.views.add(result)
 
-proc view*[T: typedesc](ents: var Ents, t: T): auto =
+proc view*[T: typedesc](ents: var Ents; t: T): auto =
   for view in ents.views.mitems:
     if view.keyMatch([t.getTypeId]):
       if not view.valid:
@@ -247,7 +257,7 @@ proc view*[T: typedesc](ents: var Ents, t: T): auto =
   ents.populate(result)
   ents.views.add(result)
 
-macro view2(entsIdent: untyped, ts: untyped): untyped =
+macro view2(entsIdent: untyped; ts: untyped): untyped =
   result = nnkStmtList.newTree()
   var call = nnkCall.newTree(nnkDotExpr.newTree(entsIdent, ident("view")))
   var brac = nnkBracket.newTree()
@@ -256,16 +266,16 @@ macro view2(entsIdent: untyped, ts: untyped): untyped =
   call.add(brac)
   result.add(call)
 
-template view*(ents: var Ents, xs: openArray[typedesc]): auto =
+template view*(ents: var Ents; xs: openArray[typedesc]): auto =
   view2(ents, xs)
 
 proc update*(ents: Ents) =
   discard
 
-proc dumpHook(s: var string, k: Table[TypeId, SomeCompBuff]) =
+proc dumpHook(s: var string; k: Table[TypeId, SomeCompBuff]) =
   s.add("{}")
 
-proc dumpHook(s: var string, ks: Table[TypeId, string]) =
+proc dumpHook(s: var string; ks: Table[TypeId, string]) =
   s.add("{")
   for (i, k) in enumerate(ks.keys):
     s.add(&"\"{k}\": \"{ks[k]}\"")
@@ -273,7 +283,7 @@ proc dumpHook(s: var string, ks: Table[TypeId, string]) =
       s.add(", ")
   s.add("}")
 
-proc dumpHook(s: var string, ks: Table[TypeId, int]) =
+proc dumpHook(s: var string; ks: Table[TypeId, int]) =
   s.add("{")
   for (i, k) in enumerate(ks.keys):
     s.add(&"\"{k}\": {ks[k]}")
@@ -281,7 +291,7 @@ proc dumpHook(s: var string, ks: Table[TypeId, int]) =
       s.add(", ")
   s.add("}")
 
-proc save*(ents: Ents, comp: (abs: SomeCompBuff) ->
+proc save*(ents: Ents; comp: (abs: SomeCompBuff) ->
     string): string =
   var js = jsony.toJson(ents).parseJson()
   var buffs = js["compBuffs"]
@@ -290,7 +300,7 @@ proc save*(ents: Ents, comp: (abs: SomeCompBuff) ->
     buffs.add($k, buffSave.parseJson())
   js.pretty
 
-proc load*(code: string, comp: (node: JsonNode) -> SomeCompBuff): Ents =
+proc load*(code: string; comp: (node: JsonNode) -> SomeCompBuff): Ents =
   let js = code.parseJson()
   result = Ents.init()
 

@@ -6,6 +6,8 @@ import ../platform
 import coral/core
 import coral/core/profiles
 
+export options
+
 type
   GameStep* = enum
     load
@@ -50,6 +52,9 @@ proc loadProfile*(game: var Game; profileId: string; cmds: ptr Commands) =
     genMigrationFun(jn, js, [])
   cmds[] = Commands.load(states[name(Commands)], Commands.version)
 
+proc getProfiles*(game: Game): seq[Profile] =
+  getProfiles(game.name)
+
 proc commandDispatch*(game: var Game; commands: var Commands) =
   var commandQueue = commands.toSeq()
   commands.clear()
@@ -85,8 +90,6 @@ proc isActive(id: PluginId): bool =
 
 proc shouldLoadScene(id: PluginId): bool =
   result = id.isActive() and id.shouldLoad()
-  if result:
-    echo "LOADING ", id
 
 proc isActiveAndReady(id: PluginId): bool =
   result = id.isActive() and not id.shouldLoad(keep = true)

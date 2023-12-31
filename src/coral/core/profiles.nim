@@ -7,6 +7,7 @@ type
     version*: int = 1
     gameName*: string
     name*: string
+    # TODO: lastWritten: DateTime
 
   Savable*{.explain.} = concept x, type T
     x.save() is JsonNode
@@ -28,8 +29,8 @@ proc requiresMigration*(n: JsonNode, targetVersion: int): bool =
 proc save*(profile: Profile) =
   try:
     let saveDir = getProfilesDir(profile.gameName)
-    if not dirExists(saveDir):
-      createDir(saveDir)
+    if not dirExists(saveDir / profile.name):
+      createDir(saveDir / profile.name)
     writeFile(saveDir / profile.name / "profile.json", ( %* profile).pretty)
   except IOError:
     echo getCurrentExceptionMsg()
@@ -68,16 +69,12 @@ proc load*(profile: var Profile, migrate: proc(name: string,
   except CatchableError:
     echo getCurrentExceptionMsg()
 
-# proc getProfiles*(): seq[Profile] =
-#   let saveDir = getSaveDirectoryPath(profile.gameName, profile.name).string
-#   let statesDir = saveDir / "states"
-#   try:
-#     for (kind, path) in walkDir(statesDir, relative = true):
-#       if kind != pcFile:
-#         continue
-#       result.add(to(readFile(path), Profile))
-#   except CatchableError:
-#     echo getCurrentExceptionMsg()
+proc getProfiles*(gameName: string): seq[Profile] =
+  let profileDir = getProfilesDir(gameName)
+  for (kind, path) in walkDir(profileDir, relative = true):
+    if kind == pcFile:
+      continue
+    result.add(to(parseJson(readFile(profileDir / path / "profile.json")), Profile))
 
 macro genMigrationFun*(jsName: string, js: JsonNode,
     savables: untyped): untyped =
@@ -119,27 +116,28 @@ macro implSavable*(t: typedesc, vers: int, migrate: untyped): untyped =
 
 when isMainModule:
   var prof = Profile(name: "test", gameName: "TestGame")
-
   echo getProfilesDir("TestGame")
 
-  type SaveState* = object
-    magic = 420
-  type SaveState2* = object
-    other = 113
+  echo getProfiles("TestGame")
+  saveProfile(prof, [])
 
-  var s = SaveState()
-  var s2 = SaveState2()
+  # type SaveState* = object
+  #   magic = 420
+  # type SaveState2* = object
+  #   other = 113
 
-  implSavable(SaveState)
-  implSavable(SaveState2)
+  # var s = SaveState()
+  # var s2 = SaveState2()
 
-  expandMacros:
-    saveProfile(prof, [(s, SaveState), (s2, SaveState2)])
+  # implSavable(SaveState)
+  # implSavable(SaveState2)
 
-  var states = prof.load() do (jsName: string, js: JsonNode) -> JsonNode:
-    expandMacros:
-      genMigrationFun(jsName, js, [SaveState, SaveState2])
+  # expandMacros:
 
-  var state = SaveState.load(states[name(SaveState)], SaveState.version)
-  var state2 = SaveState2.load(states[name(SaveState2)], SaveState2.version)
-  echo state, " ", state2
+  # var states = prof.load() do (jsName: string, js: JsonNode) -> JsonNode:
+  #   expandMacros:
+  #     genMigrationFun(jsName, js, [SaveState, SaveState2])
+
+  # var state = SaveState.load(states[name(SaveState)], SaveState.version)
+  # var state2 = SaveState2.load(states[name(SaveState2)], SaveState2.version)
+  # echo state, " ", state2
