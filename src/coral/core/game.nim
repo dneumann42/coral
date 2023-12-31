@@ -12,6 +12,7 @@ type
   GameStep* = enum
     load
     loadScene
+    unloadScene
     update
     draw
     unload
@@ -97,13 +98,13 @@ proc isActiveAndReady(id: PluginId): bool =
 template start*(game: var Game) =
   block:
     var
-      cmds {.inject.} = Commands.init()
-      artist {.inject.} = Artist.init()
-      atlas {.inject.} = Atlas.init()
-      states {.inject.} = GameState.init()
-      ents {.inject.} = Ents.init()
-      events {.inject.} = Events.init()
-      resources {.inject.} = Resources.init()
+      cmds {.inject, used.} = Commands.init()
+      artist {.inject, used.} = Artist.init()
+      atlas {.inject, used.} = Atlas.init()
+      states {.inject, used.} = GameState.init()
+      ents {.inject, used.} = Ents.init()
+      events {.inject, used.} = Events.init()
+      resources {.inject, used.} = Resources.init()
 
     initializeWindow(title = game.title)
     pushScene(game.startingScene)
