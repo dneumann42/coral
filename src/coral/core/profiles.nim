@@ -1,6 +1,7 @@
-import std/json, os, tables, typetraits, macros, typetraits, times
+import std/[json, os, tables, typetraits, macros, times]
 
 import ../platform/application
+import saving
 
 type
   Profile* = object
@@ -8,15 +9,6 @@ type
     gameName*: string
     name*: string
     lastWritten*: DateTime
-
-  Savable* {.explain.} = concept x, type T
-    x.save() is JsonNode
-    T.version is int
-    T.migrate(JsonNode) is JsonNode
-
-  Loadable* {.explain.} = concept type T
-    T is Savable
-    T.load(JsonNode) is T
 
 const DT_FMT = "yyyy-MM-dd H:mm:ss"
 
@@ -34,11 +26,11 @@ proc load*(T: type Profile, js: JsonNode): T =
     name: js["name"].getStr,
     lastWritten: DateTime.load(js["lastWritten"]))
 
-proc migrate*(T: type Profile; js: JsonNode): JsonNode = 
+proc migrate*(T: type Profile; js: JsonNode): JsonNode =
   js
 
 proc save*(p: Profile): JsonNode =
-  (%* p)
+  ( %* p)
 
 proc getProfilesDir*(gameName: string): string =
   (getSaveDirectoryPath(gameName, "").string)[0..^2] / "profiles"
@@ -80,7 +72,8 @@ proc load*(profile: var Profile, migrate: proc(name: string,
   try:
     if not dirExists(saveDir):
       return initTable[string, JsonNode]()
-    let loadedProfile = Profile.load(parseJson(readFile(saveDir / "profile.json")))
+    let loadedProfile = Profile.load(parseJson(readFile(saveDir /
+        "profile.json")))
     profile.name = loadedProfile.name
     profile.gameName = loadedProfile.gameName
 
@@ -102,7 +95,8 @@ proc getProfiles*(gameName: string): seq[Profile] =
   for (kind, path) in walkDir(profileDir, relative = true):
     if kind == pcFile:
       continue
-    result.add(Profile.load(parseJson(readFile(profileDir / path / "profile.json"))))
+    result.add(Profile.load(parseJson(readFile(profileDir / path /
+        "profile.json"))))
 
 macro genMigrationFun*(jsName: string, js: JsonNode,
     savables: untyped): untyped =
@@ -126,21 +120,6 @@ macro saveProfile*(profile: Profile, states: untyped): untyped =
   quote do:
     `profile`.saveProfile()
     `saves`
-
-macro implSavable*(t: typedesc, vers = 1): untyped =
-  proc toJson[T](ty: T): JsonNode = %* ty
-  quote do:
-    proc version*(T: type `t`): int = `vers`
-    proc save*(s: `t`): JsonNode = toJson(s)
-    proc load*(T: type `t`, n: JsonNode, version: int): T = to(n, T)
-    proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
-
-macro implSavable*(t: typedesc, vers: int, migrate: untyped): untyped =
-  quote do:
-    proc version*(T: type `t`): int = `vers`
-    proc save*(s: `t`): JsonNode = %* s
-    proc load*(T: type `t`, n: JsonNode, version: int): T = to(n, T)
-    proc migrate*(T: type `t`, js: JsonNode): JsonNode = `migrate`(js)
 
 static:
   assert Profile is Savable
