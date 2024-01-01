@@ -1,4 +1,4 @@
-import ../core/[typeids]
+import ../core/[typeids, saving]
 import types
 
 type
@@ -46,3 +46,13 @@ proc add*(v: View; entId: EntId) =
 
 proc len*(view: View): int =
   view.entities.len
+
+proc version*(T: type View): int = 1
+proc save*(e: View): JsonNode = %* {}
+proc `%`*(e: View): JsonNode = e.save()
+proc migrate*(T: type View; js: JsonNode): JsonNode = js
+proc load*(T: type View; n: JsonNode): T = to(T.migrate(n), T)
+
+static:
+  assert View is Savable
+  assert View is Loadable

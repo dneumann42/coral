@@ -101,9 +101,9 @@ proc getProfiles*(gameName: string): seq[Profile] =
 macro genMigrationFun*(jsName: string, js: JsonNode,
     savables: untyped): untyped =
   result = nnkStmtList.newTree()
-
   for savable in savables:
     let check = quote do:
+      static: assert(`savable` is Savable)
       if name(`savable`) == `jsName` and requiresMigration(`js`,
           `savable`.version):
         return `savable`.migrate(js)

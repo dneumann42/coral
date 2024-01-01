@@ -52,12 +52,23 @@ proc title*(game: Game): string = game.title
 proc currentProfile*(game: Game): Option[Profile] =
   game.profile
 
-proc loadProfile*(game: var Game; profileId: string; cmds: ptr Commands) =
+proc loadProfile*(
+  game: var Game;
+  profileId: string;
+  cmds: ptr Commands;
+  ents: ptr Ents;
+) =
   var profile = Profile(name: profileId, gameName: game.name)
+
   var states = profile.load() do (jn: string; js: JsonNode) -> JsonNode:
-    genMigrationFun(jn, js, [])
+    genMigrationFun(jn, js, [Commands, Ents])
+
   game.profile = profile.some()
-  cmds[] = Commands.load(states[name(Commands)], Commands.version)
+
+  if states.hasKey(name(Commands)):
+    cmds[] = Commands.load(states[name(Commands)])
+  # if states.hasKey(name(Ents)):
+  #   ents[] = Ents.load(states[name(Ents)])
 
 proc deleteProfile*(game: var Game; profileId: string) =
   var profile = Profile(name: profileId, gameName: game.name)
@@ -73,7 +84,7 @@ proc latestProfile*(game: Game): Option[Profile] =
   profiles.sort((a, b: Profile) => cmp(b.lastWritten, a.lastWritten))
   profiles[0].some()
 
-proc commandDispatch*(game: var Game; commands: var Commands) =
+proc commandDispatch*(game: var Game; commands: var Commands; ents: var Ents) =
   var commandQueue = commands.toSeq()
   commands.clear()
   for cmd in commandQueue:
@@ -88,15 +99,15 @@ proc commandDispatch*(game: var Game; commands: var Commands) =
         game.shouldExit = true
       NewProfile(newId):
         let profile = Profile(name: newId, gameName: game.name)
-        saveProfile(profile, [(commands, Commands)])
+        saveProfile(profile, [(commands, Commands), (ents, Ents)])
         game.profile = some(profile)
         info("Created new profile: " & newId)
       SaveProfile:
         if Some(@profile) ?= game.profile:
-          saveProfile(profile, [(commands, Commands)])
+          saveProfile(profile, [(commands, Commands), (ents, Ents)])
           info("Saved profile: " & profile.name)
       LoadProfile(loadId):
-        game.loadProfile(loadId, commands.addr)
+        game.loadProfile(loadId, commands.addr, ents.addr)
         info("Loaded profile: " & loadId)
       DeleteProfile(deleteId):
         game.deleteProfile(deleteId)
@@ -143,7 +154,7 @@ template start*(game: var Game) =
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
         generatePluginStep[GameStep](update, isActive)
 
-      game.commandDispatch(cmds)
+      game.commandDispatch(cmds, ents)
       flush(events)
 
       if game.shouldExit:

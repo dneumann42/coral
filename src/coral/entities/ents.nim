@@ -1,10 +1,8 @@
-import views, types, componentBuffers
+import views, types, componentBuffers, fusion/matching, print
+import ../core/[typeids, saving]
+import std/[tables, hashes, macros, sequtils, typetraits, options]
 
-import ../core/typeids
-
-import std/[tables, hashes, macros, sequtils, typetraits]
-
-export views, types
+export views, types, componentBuffers
 
 type
   Ent = object
@@ -15,12 +13,7 @@ type
     dead: seq[EntId]
     entities: seq[Ent]
     views: seq[View]
-    compNames: Table[TypeId, string]
-    compBuffs: Table[TypeId, SomeCompBuff]
-
-proc `=sink`*(x: var Ents; y: Ents) {.error.}
-proc `=copy`*(x: var Ents; y: Ents) {.error.}
-proc `=wasMoved`*(x: var Ents) {.error.}
+    compBuffs: TableRef[TypeId, SomeCompBuff]
 
 proc initEnt*(id: EntId): Ent =
   result = Ent(
@@ -38,8 +31,7 @@ proc isDead*(ents: var Ents; entId: EntId): bool =
 proc init*(T: type Ents): T =
   T(entities: @[],
     views: @[],
-    compBuffs: initTable[TypeId, SomeCompBuff](),
-    compNames: initTable[TypeId, string]())
+    compBuffs: newTable[TypeId, SomeCompBuff]())
 
 proc spawn*(ents: var Ents): EntId =
   if ents.dead.len > 0:
@@ -58,7 +50,6 @@ proc add*[T](ents: var Ents; entId: EntId; comp: sink T) =
   let id = getTypeId(T)
   if not ents.compBuffs.hasKey(id):
     ents.compBuffs[id] = initCompBuff[T]()
-    ents.compNames[id] = name(T)
   var
     buff = cast[ptr CompBuff[T]](ents.compBuffs[id].addr)
     idx = buff.add(comp)
@@ -192,3 +183,48 @@ template view*(ents: var Ents; xs: openArray[typedesc]): auto =
 
 proc update*(ents: Ents) =
   discard
+
+## Saving and loading entities
+var compSaveHook = none(proc(buff: SomeCompBuff): seq[JsonNode])
+
+proc componentSaveHook*(fn: proc(buff: SomeCompBuff): seq[JsonNode]) =
+  compSaveHook = some(fn)
+
+proc `%`(comps: TableRef[TypeId, int]): JsonNode =
+  result = %* {}
+  for k, v in comps.pairs:
+    result[$k] = % v
+
+proc version*(T: type Ent): int = 1
+proc save*(e: Ent): JsonNode =
+  %* {"id": % e.id, "comps": % e.comps}
+proc `%`(e: Ent): JsonNode = e.save()
+proc migrate*(T: type Ent; js: JsonNode): JsonNode = js
+proc load*(T: type Ent; n: JsonNode): T = to(T.migrate(n), T)
+
+proc `%`(compBuffs: TableRef[TypeId, SomeCompBuff]): JsonNode =
+  result = %* {}
+  if Some(@hook) ?= compSaveHook:
+    for k, v in compBuffs.pairs:
+      ## HACK! I don't know how there are empty component buffs,
+      ## I've looked at all of the places we're adding them, and im
+      ## not finding it, wonder if its a copy error
+
+      result[$k] = v.save()
+      result[$k]["components"] = % hook(v)
+
+proc version*(T: type Ents): int = 1
+proc save*(s: Ents): JsonNode =
+  %* {
+    "dead": % s.dead,
+    "entities": % s.entities,
+    "views": % s.views,
+    "compBuffs": % s.compBuffs}
+proc migrate*(T: type Ents; js: JsonNode): JsonNode = js
+proc load*(T: type Ents; n: JsonNode): T = to(T.migrate(n), T)
+
+static:
+  assert Ents is Savable
+  assert Ents is Loadable
+  assert Ent is Savable
+  assert Ent is Loadable

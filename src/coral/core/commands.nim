@@ -1,7 +1,6 @@
-import patty, jsony, json, typetraits, macros, sequtils, strutils
-import scenes, events
+import patty, json, typetraits
 
-import profiles
+import saving
 
 variantp Command:
   PushScene(pushId: string)
@@ -20,7 +19,6 @@ type
 proc version*(commands: type Commands): int = 1
 
 proc `%`*(c: Command): JsonNode =
-  echo "SAVING COMMANDS"
   match c:
     PushScene(pushId):
       result = %* {"kind": "PushScene", "pushId": pushId}
@@ -50,7 +48,7 @@ proc `%`*(c: Commands): JsonNode =
 proc save*(c: Commands): JsonNode =
   result = % c
 
-proc load*(T: type Commands, n: JsonNode, version: int): T = to(n, T)
+proc load*(T: type Commands, n: JsonNode): T = to(T.migrate(n), T)
 proc migrate*(T: type Commands, js: JsonNode): JsonNode = js
 
 iterator items*(commands: Commands): Command =
@@ -87,6 +85,10 @@ proc deleteProfile*(self: var Commands, id: string) =
 proc exit*(self: var Commands): var Commands {.discardable.} =
   self.stack.add Exit()
   self
+
+static:
+  assert Commands is Savable
+  assert Commands is Loadable
 
 when isMainModule:
   echo Commands.init().save()

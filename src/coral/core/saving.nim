@@ -15,10 +15,14 @@ type
     T is Savable
     T.load(JsonNode) is T
 
+  SavableLoadable* = concept type T
+    T is Savable
+    T is Loadable
+
 macro implSavable*(t: typedesc, vers = 1): untyped =
   proc toJson[T](ty: T): JsonNode = %* ty
   quote do:
     proc version*(T: type `t`): int = `vers`
     proc save*(s: `t`): JsonNode = toJson(s)
-    proc load*(T: type `t`, n: JsonNode, version: int): T = to(T.migrate(n), T)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
+    proc load*(T: type `t`, n: JsonNode): T = to(T.migrate(n), T)
