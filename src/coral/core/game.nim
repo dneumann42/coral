@@ -1,4 +1,5 @@
-import events, commands, patty, states, plugins, scenes, fusion/matching, print
+import events, commands, patty, states, plugins, scenes, fusion/matching, print,
+    algorithm, sugar, times
 import ../artist/[artist, atlas]
 import ../entities/ents
 import ../platform
@@ -64,6 +65,13 @@ proc deleteProfile*(game: var Game; profileId: string) =
 
 proc getProfiles*(game: Game): seq[Profile] =
   getProfiles(game.name)
+
+proc latestProfile*(game: Game): Option[Profile] =
+  var profiles = game.getProfiles()
+  if profiles.len() == 0:
+    return none(Profile)
+  profiles.sort((a, b: Profile) => cmp(b.lastWritten, a.lastWritten))
+  profiles[0].some()
 
 proc commandDispatch*(game: var Game; commands: var Commands) =
   var commandQueue = commands.toSeq()

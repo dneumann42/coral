@@ -1,4 +1,4 @@
-import std/json, os, tables, typetraits, macros, typetraits
+import std/json, os, tables, typetraits, macros, typetraits, times
 
 import ../platform/application
 
@@ -7,7 +7,7 @@ type
     version*: int = 1
     gameName*: string
     name*: string
-    # TODO: lastWritten: DateTime
+    lastWritten*: DateTime
 
   Savable* {.explain.} = concept x, type T
     x.save() is JsonNode
@@ -18,6 +18,28 @@ type
     T is Savable
     T.load(JsonNode) is T
 
+const DT_FMT = "yyyy-MM-dd H:mm:ss"
+
+proc `%`*(time: DateTime): JsonNode =
+  result = % time.format(DT_FMT)
+
+proc load*(T: type DateTime, js: JsonNode): T =
+  let st = js.getStr()
+  parse(st, DT_FMT)
+
+proc load*(T: type Profile, js: JsonNode): T =
+  result = T(
+    version: js["version"].getInt,
+    gameName: js["gameName"].getStr,
+    name: js["name"].getStr,
+    lastWritten: DateTime.load(js["lastWritten"]))
+
+proc migrate*(T: type Profile; js: JsonNode): JsonNode = 
+  js
+
+proc save*(p: Profile): JsonNode =
+  (%* p)
+
 proc getProfilesDir*(gameName: string): string =
   (getSaveDirectoryPath(gameName, "").string)[0..^2] / "profiles"
 
@@ -26,12 +48,14 @@ proc requiresMigration*(n: JsonNode, targetVersion: int): bool =
     return false
   n["version"].getInt() != targetVersion
 
-proc save*(profile: Profile) =
+proc saveProfile*(profile: Profile) =
   try:
-    let saveDir = getProfilesDir(profile.gameName)
-    if not dirExists(saveDir / profile.name):
-      createDir(saveDir / profile.name)
-    writeFile(saveDir / profile.name / "profile.json", ( %* profile).pretty)
+    var prof = profile
+    prof.lastWritten = now().utc
+    let saveDir = getProfilesDir(prof.gameName)
+    if not dirExists(saveDir / prof.name):
+      createDir(saveDir / prof.name)
+    writeFile(saveDir / prof.name / "profile.json", prof.save().pretty)
   except IOError:
     echo getCurrentExceptionMsg()
 
@@ -56,7 +80,7 @@ proc load*(profile: var Profile, migrate: proc(name: string,
   try:
     if not dirExists(saveDir):
       return initTable[string, JsonNode]()
-    let loadedProfile = to(parseJson(readFile(saveDir / "profile.json")), Profile)
+    let loadedProfile = Profile.load(parseJson(readFile(saveDir / "profile.json")))
     profile.name = loadedProfile.name
     profile.gameName = loadedProfile.gameName
 
@@ -78,7 +102,7 @@ proc getProfiles*(gameName: string): seq[Profile] =
   for (kind, path) in walkDir(profileDir, relative = true):
     if kind == pcFile:
       continue
-    result.add(to(parseJson(readFile(profileDir / path / "profile.json")), Profile))
+    result.add(Profile.load(parseJson(readFile(profileDir / path / "profile.json"))))
 
 macro genMigrationFun*(jsName: string, js: JsonNode,
     savables: untyped): untyped =
@@ -100,7 +124,7 @@ macro saveProfile*(profile: Profile, states: untyped): untyped =
     let id = state[1]
     saves.add(quote do: `profile`.save(name(`id`), `val`))
   quote do:
-    `profile`.save()
+    `profile`.saveProfile()
     `saves`
 
 macro implSavable*(t: typedesc, vers = 1): untyped =
@@ -117,6 +141,10 @@ macro implSavable*(t: typedesc, vers: int, migrate: untyped): untyped =
     proc save*(s: `t`): JsonNode = %* s
     proc load*(T: type `t`, n: JsonNode, version: int): T = to(n, T)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = `migrate`(js)
+
+static:
+  assert Profile is Savable
+  assert Profile is Loadable
 
 when isMainModule:
   var prof = Profile(name: "test", gameName: "TestGame")

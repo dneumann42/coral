@@ -24,5 +24,5 @@ requires "print"
 requires "fusion"
 requires "cascade"
 requires "chroma"
+requires "chrono"
 requires "https://github.com/SkyVault/tweenim"
-
