@@ -3,6 +3,8 @@
 
 import std/[json, macros]
 
+export json
+
 type
   Savable* {.explain.} = concept x, type T
     x.save() is JsonNode
@@ -18,12 +20,5 @@ macro implSavable*(t: typedesc, vers = 1): untyped =
   quote do:
     proc version*(T: type `t`): int = `vers`
     proc save*(s: `t`): JsonNode = toJson(s)
-    proc load*(T: type `t`, n: JsonNode, version: int): T = to(n, T)
+    proc load*(T: type `t`, n: JsonNode, version: int): T = to(T.migrate(n), T)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
-
-macro implSavable*(t: typedesc, vers: int, migrate: untyped): untyped =
-  quote do:
-    proc version*(T: type `t`): int = `vers`
-    proc save*(s: `t`): JsonNode = %* s
-    proc load*(T: type `t`, n: JsonNode, version: int): T = to(n, T)
-    proc migrate*(T: type `t`, js: JsonNode): JsonNode = `migrate`(js)
