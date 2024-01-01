@@ -9,7 +9,7 @@ type
     name*: string
     # TODO: lastWritten: DateTime
 
-  Savable*{.explain.} = concept x, type T
+  Savable* {.explain.} = concept x, type T
     x.save() is JsonNode
     T.version is int
     T.migrate(JsonNode) is JsonNode
@@ -68,6 +68,10 @@ proc load*(profile: var Profile, migrate: proc(name: string,
       result[name] = migrate(name, stateJson)
   except CatchableError:
     echo getCurrentExceptionMsg()
+
+proc delete*(profile: Profile) =
+  let profileDir = getProfilesDir(profile.gameName)
+  removeDir(profileDir / profile.name)
 
 proc getProfiles*(gameName: string): seq[Profile] =
   let profileDir = getProfilesDir(gameName)

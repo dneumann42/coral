@@ -58,6 +58,10 @@ proc loadProfile*(game: var Game; profileId: string; cmds: ptr Commands) =
   game.profile = profile.some()
   cmds[] = Commands.load(states[name(Commands)], Commands.version)
 
+proc deleteProfile*(game: var Game; profileId: string) =
+  var profile = Profile(name: profileId, gameName: game.name)
+  profile.delete()
+
 proc getProfiles*(game: Game): seq[Profile] =
   getProfiles(game.name)
 
@@ -86,6 +90,9 @@ proc commandDispatch*(game: var Game; commands: var Commands) =
       LoadProfile(loadId):
         game.loadProfile(loadId, commands.addr)
         info("Loaded profile: " & loadId)
+      DeleteProfile(deleteId):
+        game.deleteProfile(deleteId)
+        info("Deleted profile: " & deleteId)
 
 proc isActive(id: PluginId): bool =
   if not isScene(id) and isSceneSpecific.hasKey(id) and isSceneSpecific[

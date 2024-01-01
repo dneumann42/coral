@@ -10,6 +10,7 @@ variantp Command:
   SaveProfile
   NewProfile(newId: string)
   LoadProfile(loadId: string)
+  DeleteProfile(deleteId: string)
   Exit
 
 type
@@ -33,6 +34,8 @@ proc `%`*(c: Command): JsonNode =
       result = %* {"kind": "NewProfile", "newId": newId}
     LoadProfile(loadId):
       result = %* {"kind": "LoadProfile", "loadId": loadId}
+    DeleteProfile(deleteId):
+      result = %* {"kind": "DeleteProfile", "deleteId": deleteId}
     Exit:
       result = %* {"kind": "Exit"}
 
@@ -60,28 +63,26 @@ proc init*(T: type Commands): T =
 proc clear*(self: var Commands) =
   self.stack.setLen(0)
 
-proc pushScene*(self: var Commands, id: string): var Commands {.discardable.} =
+proc pushScene*(self: var Commands, id: string) =
   self.stack.add(PushScene(id))
-  self
 
 proc backScene*(self: var Commands) =
   self.stack.add(BackScene())
 
-proc changeScene*(self: var Commands, id: string): var Commands {.discardable.} =
+proc changeScene*(self: var Commands, id: string) =
   self.stack.add(ChangeScene(id))
-  self
 
-proc newProfile*(self: var Commands, id: string): var Commands {.discardable.} =
+proc newProfile*(self: var Commands, id: string) =
   self.stack.add(NewProfile(id))
-  self
 
-proc saveProfile*(self: var Commands): var Commands {.discardable.} =
+proc saveProfile*(self: var Commands) =
   self.stack.add SaveProfile()
-  self
 
-proc loadProfile*(self: var Commands, id: string): var Commands {.discardable.} =
+proc loadProfile*(self: var Commands, id: string) =
   self.stack.add LoadProfile(id)
-  self
+
+proc deleteProfile*(self: var Commands, id: string) =
+  self.stack.add DeleteProfile(id)
 
 proc exit*(self: var Commands): var Commands {.discardable.} =
   self.stack.add Exit()
