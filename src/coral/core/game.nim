@@ -1,8 +1,9 @@
-import events, options, commands, patty, states, plugins, macros, scenes,
-    tables, sets, sequtils, json, typetraits, fusion/matching
+import events, commands, patty, states, plugins, scenes, fusion/matching, print
 import ../artist/[artist, atlas]
 import ../entities/ents
 import ../platform
+
+import std/[logging, sets, sequtils, json, typetraits, options, macros, tables]
 import coral/core
 import coral/core/profiles
 
@@ -47,10 +48,14 @@ func init*(T: type Game; name: string; startingScene = none(SceneId);
 
 proc title*(game: Game): string = game.title
 
+proc currentProfile*(game: Game): Option[Profile] =
+  game.profile
+
 proc loadProfile*(game: var Game; profileId: string; cmds: ptr Commands) =
-  var profile = Profile(name: profileId)
+  var profile = Profile(name: profileId, gameName: game.name)
   var states = profile.load() do (jn: string; js: JsonNode) -> JsonNode:
     genMigrationFun(jn, js, [])
+  game.profile = profile.some()
   cmds[] = Commands.load(states[name(Commands)], Commands.version)
 
 proc getProfiles*(game: Game): seq[Profile] =
@@ -73,10 +78,14 @@ proc commandDispatch*(game: var Game; commands: var Commands) =
         let profile = Profile(name: newId, gameName: game.name)
         saveProfile(profile, [(commands, Commands)])
         game.profile = some(profile)
+        info("Created new profile: " & newId)
       SaveProfile:
         if Some(@profile) ?= game.profile:
           saveProfile(profile, [(commands, Commands)])
-      LoadProfile(loadId): discard
+          info("Saved profile: " & profile.name)
+      LoadProfile(loadId):
+        game.loadProfile(loadId, commands.addr)
+        info("Loaded profile: " & loadId)
 
 proc isActive(id: PluginId): bool =
   if not isScene(id) and isSceneSpecific.hasKey(id) and isSceneSpecific[

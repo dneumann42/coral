@@ -19,6 +19,7 @@ type
 proc version*(commands: type Commands): int = 1
 
 proc `%`*(c: Command): JsonNode =
+  echo "SAVING COMMANDS"
   match c:
     PushScene(pushId):
       result = %* {"kind": "PushScene", "pushId": pushId}
@@ -36,10 +37,9 @@ proc `%`*(c: Command): JsonNode =
       result = %* {"kind": "Exit"}
 
 proc `%`*(cs: seq[Command]): JsonNode =
-  # result = %* []
-  # for c in cs:
-  #   result.add( % c)
-  discard
+  result = %* []
+  for c in cs:
+    result.add( % c)
 
 proc `%`*(c: Commands): JsonNode =
   result = %* {"stack": c.stack}
@@ -60,10 +60,6 @@ proc init*(T: type Commands): T =
 proc clear*(self: var Commands) =
   self.stack.setLen(0)
 
-proc newProfile*(self: var Commands, id: string): var Commands {.discardable.} =
-  self.stack.add(NewProfile(id))
-  self
-
 proc pushScene*(self: var Commands, id: string): var Commands {.discardable.} =
   self.stack.add(PushScene(id))
   self
@@ -75,8 +71,16 @@ proc changeScene*(self: var Commands, id: string): var Commands {.discardable.} 
   self.stack.add(ChangeScene(id))
   self
 
+proc newProfile*(self: var Commands, id: string): var Commands {.discardable.} =
+  self.stack.add(NewProfile(id))
+  self
+
 proc saveProfile*(self: var Commands): var Commands {.discardable.} =
   self.stack.add SaveProfile()
+  self
+
+proc loadProfile*(self: var Commands, id: string): var Commands {.discardable.} =
+  self.stack.add LoadProfile(id)
   self
 
 proc exit*(self: var Commands): var Commands {.discardable.} =
