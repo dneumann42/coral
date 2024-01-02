@@ -1,15 +1,8 @@
-import std/[macros, strutils, tables, macrocache, enumerate]
-import compBuffs
+import std/[macros, sequtils, strutils, tables, macrocache, enumerate, sugar]
 
-import ../core/saving
+import compBuffs, views, types
 
-type
-  EntId = distinct int
-
-proc `%`*(i: EntId): JsonNode =
-  % (i.int)
-proc `$`*(i: EntId): string =
-  $(i.int)
+import ../core/[saving, typeids]
 
 var entities = newSeq[EntId]()
 var indexes = newSeq[Table[string, int]]()
@@ -127,11 +120,21 @@ template resetEntities*() =
   indexes.setLen(0)
   entities.setLen(0)
 
+## Views
+macro view*(xs: untyped): auto =
+  var ts = nnkCall.newTree(nnkDotExpr.newTree(ident("View"), ident("new")), )
+  for x in xs:
+    ts.add(quote do: getTypeId(`x`))
+  ts
+
 when isMainModule:
   type Pos = object
     x, y: float
   type Player = object
     test = 420
+
+  dumpAstGen:
+    View.new(Player, Pos)
 
   implSavable(Pos)
   implSavable(Player)
