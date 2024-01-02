@@ -1,29 +1,25 @@
 import ../core/[typeids, saving]
+import std/[sets, sequtils]
+
 import types
+
+type
+  ViewKey = HashSet[TypeId]
 
 type
   View* = ref object
     valid*: bool
-    keys: seq[TypeId]
+    key: ViewKey
     entities: seq[EntId]
 
-proc new*(T: type View; keys = newSeq[TypeId]()): T = T(keys: keys, entities: @[])
-proc new*(T: type View; keys: varargs[TypeId]): T = T.new(@keys)
-proc new*(T: type View; keys: UncheckedArray[TypeId]): T = T.new(@keys)
+proc new*(T: type View; key: HashSet[TypeId]): T = T(key: key, entities: @[])
+proc new*(T: type View; key: varargs[TypeId]): T = T.new(key.toSeq.toHashSet)
+proc new*(T: type View; key: UncheckedArray[TypeId]): T = T.new(key.toHashSet)
 
-func hasKey*(view: View; key: TypeId): bool =
-  result = view.keys.contains(key)
-
-iterator keys*(view: View): TypeId =
-  for k in view.keys:
-    yield k
-
-proc keyMatch*(view: View; keys: openArray[TypeId]): bool =
-  if view.keys.len != keys.len:
-    return false
+proc keyMatch*(view: View; key: openArray[TypeId]): bool =
   result = true
-  for k in keys:
-    if not view.hasKey(k):
+  for k in key:
+    if not view.key.contains(k):
       return false
 
 proc clear*(view: View) =

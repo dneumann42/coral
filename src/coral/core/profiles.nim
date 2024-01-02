@@ -106,9 +106,8 @@ macro genMigrationFun*(jsName: string, js: JsonNode,
       static: assert(`savable` is Savable)
       if name(`savable`) == `jsName` and requiresMigration(`js`,
           `savable`.version):
-        return `savable`.migrate(js)
+        return `savable`.migrate(`js`)
     result.add(check)
-
   result.add(quote do: return `js`)
 
 macro saveProfile*(profile: Profile, states: untyped): untyped =

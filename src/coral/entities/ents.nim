@@ -1,230 +1,183 @@
-import views, types, componentBuffers, fusion/matching, print
-import ../core/[typeids, saving]
-import std/[tables, hashes, macros, sequtils, typetraits, options]
+import std/[macros, sequtils, strutils, tables, macrocache, enumerate, sugar, logging]
 
-export views, types, componentBuffers
+import compBuffs, views, types
 
-type
-  Ent = object
-    id: EntId
-    comps: TableRef[TypeId, int]
+import ../core/[saving, typeids]
 
-  Ents* = object
-    dead: seq[EntId]
-    entities: seq[Ent]
-    views: seq[View]
-    compBuffs: TableRef[TypeId, SomeCompBuff]
+export types, views
 
-proc initEnt*(id: EntId): Ent =
-  result = Ent(
-    id: id,
-    comps: newTable[TypeId, int]())
+var entities = newSeq[EntId]()
+var indexes = newSeq[Table[string, int]]()
 
-iterator entities*(ents: var Ents): EntId =
-  for ent in ents.entities.items:
-    if not ents.dead.contains(ent.id):
-      yield ent.id
+const bufferCache = CacheSeq"bufferCache"
+const bufferTypeCache = CacheSeq"bufferTypeCache"
 
-proc isDead*(ents: var Ents; entId: EntId): bool =
-  ents.dead.contains(entId)
+proc getEntities*(): seq[EntId] =
+  entities
 
-proc init*(T: type Ents): T =
-  T(entities: @[],
-    views: @[],
-    compBuffs: newTable[TypeId, SomeCompBuff]())
+proc nextEntId(): int =
+  var nextId {.global.} = 0
+  inc(nextId); nextId
 
-proc spawn*(ents: var Ents): EntId =
-  if ents.dead.len > 0:
-    result = ents.dead.pop()
-    ents.entities[result.int] = Ent(
-      id: result,
-      comps: newTable[TypeId, int]()
-    )
-  else:
-    result = ents.entities.len().EntId
-    ents.entities.add(initEnt(result))
-  for view in ents.views:
-    view.valid = false
+proc spawn*(): EntId =
+  result = nextEntId().EntId
+  entities.add(result)
+  indexes.add(initTable[string, int]())
 
-proc add*[T](ents: var Ents; entId: EntId; comp: sink T) =
-  let id = getTypeId(T)
-  if not ents.compBuffs.hasKey(id):
-    ents.compBuffs[id] = initCompBuff[T]()
-  var
-    buff = cast[ptr CompBuff[T]](ents.compBuffs[id].addr)
-    idx = buff.add(comp)
-  ents.entities[entId.int].comps[id] = idx
+template compBuffName(n: NimNode): NimNode =
+  ident(($n).toLower & "Buff")
 
-proc invalidateViewsWith(ents: var Ents; entId: EntId) =
-  for view in ents.views.mitems:
-    if view.contains(entId):
-      view.valid = false
+macro registerComponents*(ts: untyped) =
+  var buffers = nnkStmtList.newTree()
+  for t in ts:
+    let n = compBuffName(t)
+    bufferCache.add(n)
+    bufferTypeCache.add(t)
+    buffers.add(quote do:
+      var `n`* {.used.} = initCompBuff[`t`]())
+    echo "REGISTER: ", t
+  buffers
 
-proc del*[T: typedesc](ents: var Ents; id: EntId; t: T) =
-  if not ents.has(id, t):
-    return
-  var typeId = getTypeId(T)
-  var e = ents.entities[id.int].addr
-  ents.compBuffs[typeId].del(e.comps[typeId])
-  e.comps.del(typeId)
-  ents.invalidateViewsWith(id)
+macro add*[T](entId: EntId, comp: T) =
+  var t = getTypeInst(comp)
+  var n = compBuffName(t)
+  var idx = strVal(t)
+  quote do:
+    indexes[int(`entId`) - 1][`idx`] = `n`.add(`comp`)
 
-proc del*(ents: var Ents; id: EntId) =
-  var e = ents.entities[id.int]
-  ents.dead.add(id)
-  for compId in e.comps.keys:
-    ents.compBuffs[compId].del(e.comps[compId])
-  ents.invalidateViewsWith(id)
+macro has*[T](entId: EntId, t: typedesc[T]): bool =
+  var idx = strVal(t)
+  quote do:
+    indexes[int(`entId`) - 1].hasKey(`idx`)
 
-proc has*(es: Ents; id: EntId; t: TypeId): bool =
-  if not es.dead.contains(id):
-    es.entities[id.int].comps.hasKey(t)
-  else:
-    false
+macro mget*[T](entId: EntId, t: typedesc[T]): lent T =
+  var n = compBuffName(t)
+  var idx = strVal(t)
+  quote do:
+    `n`.mget(indexes[int(`entId`) - 1][`idx`])
 
-proc has*(es: Ents; id: EntId; t: typedesc): bool =
-  if not es.dead.contains(id):
-    es.entities[id.int].comps.hasKey(getTypeId(t))
-  else:
-    false
+macro componentBufferToJson(): auto =
+  var xs = nnkStmtList.newTree()
+  for c in bufferCache:
+    xs.add(quote do: bs.add( % `c`))
+  quote do:
+    block:
+      var bs {.inject.} = newJArray()
+      `xs`
+      bs
 
-proc andAll*(vs: varargs[bool]): bool =
-  result = true
-  for v in vs:
-    result = result and v
+proc `%`(tbls: seq[Table[string, int]]): JsonNode = 
+  result = %* []
+  for tbl in tbls:
+    var t = %* {}
+    for k, v in tbl.pairs:
+      t[$k] = % v
+    result.add(t)
 
-template hasImpl() =
-  var ts = nnkCall.newTree(ident("andAll"))
-  for t in types:
-    ts.add(nnkCall.newTree(
-      nnkDotExpr.newTree(es, ident("has")), id, ident($t)))
-  result = nnkStmtList.newTree(ts)
+macro saveEntities*(): auto =
+  var xs = nnkStmtList.newTree()
 
-macro has*(es, id: untyped; types: openArray[typedesc]): untyped = hasImpl()
+  for idx, buf in enumerate(bufferCache):
+    xs.add(quote do:
+      buffs["components"][`idx`]["data"] = newJArray()
+      for comp in `buf`.data:
+        buffs["components"][`idx`]["data"].add( % comp))
 
-proc has*(es: Ents; id: EntId; types: openArray[TypeId]): bool =
-  result = true
-  for t in types:
-    if es.dead.contains(id) or not es.has(id, t):
-      return false
+  quote do:
+    block:
+      var buffs {.inject.} = %* {
+        "entities": % entities,
+        "indexes": % indexes,
+        "components": componentBufferToJson()}
+      `xs`
+      buffs
 
-proc get*[T: typedesc](ents: Ents; entId: EntId; t: T): auto =
-  var
-    name = getTypeId(T)
-    buff = cast[CompBuff[T]](ents.compBuffs[name])
-  result = buff.get(ents.entities[entId.int].comps[name])
+macro loadEntities*(node: JsonNode) =
+  var first = quote do:
+    for ent in `node`["entities"]:
+      entities.add(ent.getInt.EntId)
+    for idx in `node`["indexes"]:
+      var tbl = to(idx, Table[string, int])
+      indexes.add(tbl)
 
-macro get*(es, id: untyped; types: openArray[typedesc]): untyped =
-  var vs = nnkPar.newTree()
+  ## Note: this depends on components and buffer cache
+  ## having the same order, we should sort both to ensure
+  ## thats true
 
-  for t in types:
-    vs.add(nnkCall.newTree(
-        nnkDotExpr.newTree(es, newIdentNode("get")),
-        id, ident($t)))
+  var xs = nnkStmtList.newTree()
+  var idx = 0
+  for buf in bufferCache:
+    var t = bufferTypeCache[idx]
+    var s = newLit($t)
+    xs.add(quote do:
+      `buf` = CompBuff[`t`](name: `s`))
+    xs.add(quote do:
+      for idx in `node`["components"][`idx`]["dead"]:
+        `buf`.dead.add(idx.getInt))
+    xs.add(quote do:
+      for c in `node`["components"][`idx`]["data"]:
+        discard `buf`.add(`t`.load(`t`.migrate(c))))
+    inc idx
 
-  result = nnkStmtList.newTree(vs)
+  quote do:
+    `first`
+    `xs`
 
-proc mget*[T: typedesc](ents: var Ents; entId: EntId; t: T): ptr t =
-  var
-    id = getTypeId(t)
-    buffPtr: ptr SomeCompBuff = ents.compBuffs[id].addr
-    buff = cast[ptr CompBuff[T]](buffPtr)
-  result = buff.mget(ents.entities[entId.int].comps[id]).addr
-
-macro mget*(es, id: untyped; types: openArray[typedesc]): untyped =
-  var vs = nnkPar.newTree()
-  for t in types:
-    vs.add(nnkCall.newTree(
-        nnkDotExpr.newTree(es, newIdentNode("mget")),
-        id, ident($t)))
-  result = nnkStmtList.newTree(vs)
-
-proc populate(ents: var Ents; view: View) =
-  view.clear()
-  for ent in ents.entities:
-    if view.contains(ent.id):
-      continue
-    var ks = view.keys.toSeq()
-    if ents.has(ent.id, ks):
-      view.add(ent.id)
-  view.valid = true
-
-proc view*(ents: var Ents; ts: openArray[TypeId]): auto =
-  for view in ents.views.mitems:
-    if view.keyMatch(ts):
-      if not view.valid:
-        ents.populate(view)
-      return view
-  result = View.new(ts)
-  ents.populate(result)
-  ents.views.add(result)
-
-proc view*[T: typedesc](ents: var Ents; t: T): auto =
-  for view in ents.views.mitems:
-    if view.keyMatch([t.getTypeId]):
-      if not view.valid:
-        ents.populate(view)
-      return view
-  result = View.new(t.getTypeId)
-  ents.populate(result)
-  ents.views.add(result)
-
-macro view2(entsIdent: untyped; ts: untyped): untyped =
+macro resetComponentBuffers*() =
   result = nnkStmtList.newTree()
-  var call = nnkCall.newTree(nnkDotExpr.newTree(entsIdent, ident("view")))
-  var brac = nnkBracket.newTree()
-  for x in ts:
-    brac.add(nnkDotExpr.newTree(ident($x), ident("getTypeId")))
-  call.add(brac)
-  result.add(call)
+  for buf in bufferCache:
+    result.add(quote do: `buf`.data.setLen(0))
 
-template view*(ents: var Ents; xs: openArray[typedesc]): auto =
-  view2(ents, xs)
+template resetEntities*() =
+  resetComponentBuffers()
+  indexes.setLen(0)
+  entities.setLen(0)
 
-proc update*(ents: Ents) =
-  discard
+## Views
+macro view*(xs: untyped): auto =
+  var ts = nnkCall.newTree(nnkDotExpr.newTree(ident("View"), ident("new")), )
+  for x in xs:
+    ts.add(quote do: getTypeId(`x`))
+  ts
 
-## Saving and loading entities
-var compSaveHook = none(proc(buff: SomeCompBuff): seq[JsonNode])
+## Savable interface for the profile save
+template generateEnts*() =
+  type Ents* {.inject.} = object
+  proc version*(T: type Ents): int = 1
+  proc save*(s: Ents): JsonNode =
+    info("Saved Entities")
+    saveEntities()
+  proc migrate*(T: type Ents, js: JsonNode): JsonNode = js
+  proc load*(T: type Ents, n: JsonNode): T =
+    loadEntities(n)
+    info("Loaded Entities")
+    Ents()
 
-proc componentSaveHook*(fn: proc(buff: SomeCompBuff): seq[JsonNode]) =
-  compSaveHook = some(fn)
+when isMainModule:
+  type Pos = object
+    x, y: float
+  type Player = object
+    test = 420
 
-proc `%`(comps: TableRef[TypeId, int]): JsonNode =
-  result = %* {}
-  for k, v in comps.pairs:
-    result[$k] = % v
+  dumpAstGen:
+    View.new(Player, Pos)
 
-proc version*(T: type Ent): int = 1
-proc save*(e: Ent): JsonNode =
-  %* {"id": % e.id, "comps": % e.comps}
-proc `%`(e: Ent): JsonNode = e.save()
-proc migrate*(T: type Ent; js: JsonNode): JsonNode = js
-proc load*(T: type Ent; n: JsonNode): T = to(T.migrate(n), T)
+  implSavable(Pos)
+  implSavable(Player)
 
-proc `%`(compBuffs: TableRef[TypeId, SomeCompBuff]): JsonNode =
-  result = %* {}
-  if Some(@hook) ?= compSaveHook:
-    for k, v in compBuffs.pairs:
-      ## HACK! I don't know how there are empty component buffs,
-      ## I've looked at all of the places we're adding them, and im
-      ## not finding it, wonder if its a copy error
+  registerComponents:
+    Pos
+    Player
 
-      result[$k] = v.save()
-      result[$k]["components"] = % hook(v)
+  block:
+    var ent = spawn()
+    ent.add(Pos(x: 100.0, y: 200.0))
+    ent.add(Player())
 
-proc version*(T: type Ents): int = 1
-proc save*(s: Ents): JsonNode =
-  %* {
-    "dead": % s.dead,
-    "entities": % s.entities,
-    "views": % s.views,
-    "compBuffs": % s.compBuffs}
-proc migrate*(T: type Ents; js: JsonNode): JsonNode = js
-proc load*(T: type Ents; n: JsonNode): T = to(T.migrate(n), T)
+  block:
+    var ent = spawn()
+    ent.add(Pos(x: 100.0, y: 200.0))
 
-static:
-  assert Ents is Savable
-  assert Ents is Loadable
-  assert Ent is Savable
-  assert Ent is Loadable
+  var es = saveEntities()
+  resetEntities()
+  loadEntities(es)

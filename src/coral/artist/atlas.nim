@@ -230,7 +230,7 @@ proc loadAtlas*(atlas: var Atlas, atlasPath: string) =
 proc getImageGroup*(atlas: Atlas, id: string): lent ImageGroup =
   if not atlas.imageGroups.hasKey(id):
     raise CatchableError.newException("Image Group not found: " & id)
-  result = atlas.imageGroups[id]
+  # result = atlas.imageGroups[id]
 
 proc getImageGroupImages*(atlas: Atlas, id: string): lent seq[OutImage] =
   if not atlas.imageGroups.hasKey(id):
