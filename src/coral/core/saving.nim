@@ -7,7 +7,7 @@ export json
 
 type
   Savable* {.explain.} = concept x, type T
-    x.save() is JsonNode
+    x.`%`() is JsonNode
     T.version is int
     T.migrate(JsonNode) is JsonNode
 
