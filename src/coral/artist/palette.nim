@@ -1,5 +1,7 @@
 import chroma, macros, strutils, std/enumutils
 
+export chroma
+
 type
   Palette* = enum
     black = "1a1c2c"

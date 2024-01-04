@@ -125,6 +125,9 @@ proc isDown*(mouse: MouseButton): bool =
 proc isUp*(mouse: MouseButton): bool =
   not mouse.isDown()
 
+proc clear*(mouse: MouseButton) =
+  mouseInputs.del(mouse)
+
 proc isPressed*(mouse: MouseButton): bool =
   if mouseInputs.hasKey(mouse):
     mouseInputs[mouse] and (not lastMouseInputs.hasKey(mouse) or
