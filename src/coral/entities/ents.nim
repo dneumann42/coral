@@ -7,7 +7,8 @@ import ../core/[saving, typeids]
 export types, views
 
 var entities = newSeq[EntId]()
-var indexes = newSeq[Table[string, int]]()
+var indexes = newSeq[Table[TypeId, int]]()
+var viewCache = initTable[ViewKey, View]()
 
 const bufferCache = CacheSeq"bufferCache"
 const bufferTypeCache = CacheSeq"bufferTypeCache"
@@ -22,7 +23,7 @@ proc nextEntId(): int =
 proc spawn*(): EntId =
   result = nextEntId().EntId
   entities.add(result)
-  indexes.add(initTable[string, int]())
+  indexes.add(initTable[TypeId, int]())
 
 template compBuffName(n: NimNode): NimNode =
   ident(($n).toLower & "Buff")
@@ -40,19 +41,22 @@ macro registerComponents*(ts: untyped) =
 
 macro add*[T](entId: EntId, comp: T) =
   var t = getTypeInst(comp)
+  var id = getTypeId(T)
   var n = compBuffName(t)
-  var idx = strVal(t)
   quote do:
-    indexes[int(`entId`) - 1][`idx`] = `n`.add(`comp`)
+    indexes[int(`entId`) - 1][`id`] = `n`.add(`comp`)
+
+macro has*(entId: EntId, t: TypeId): bool =
+  quote do:
+    indexes[int(`entId`) - 1].hasKey(`t`)
 
 macro has*[T](entId: EntId, t: typedesc[T]): bool =
-  var idx = strVal(t)
   quote do:
-    indexes[int(`entId`) - 1].hasKey(`idx`)
+    indexes[int(`entId`) - 1].hasKey(getTypeId(`t`))
 
 macro mget*[T](entId: EntId, t: typedesc[T]): lent T =
   var n = compBuffName(t)
-  var idx = strVal(t)
+  var idx = getTypeId(T)
   quote do:
     `n`.mget(indexes[int(`entId`) - 1][`idx`])
 
@@ -66,7 +70,7 @@ macro componentBufferToJson(): auto =
       `xs`
       bs
 
-proc `%`(tbls: seq[Table[string, int]]): JsonNode = 
+proc `%`(tbls: seq[Table[TypeId, int]]): JsonNode =
   result = %* []
   for tbl in tbls:
     var t = %* {}
@@ -98,7 +102,7 @@ macro loadEntities*(node: JsonNode) =
       entities.add(ent.getInt.EntId)
     for idx in `node`["indexes"]:
       var tbl = to(idx, Table[string, int])
-      indexes.add(tbl)
+      indexes.add(tbl.pairs.toSeq.mapIt((parseInt(it[0]).TypeId, it[1])).toTable)
 
   ## Note: this depends on components and buffer cache
   ## having the same order, we should sort both to ensure
@@ -134,11 +138,29 @@ template resetEntities*() =
   entities.setLen(0)
 
 ## Views
-macro view*(xs: untyped): auto =
-  var ts = nnkCall.newTree(nnkDotExpr.newTree(ident("View"), ident("new")), )
+macro createView*(xs: untyped): auto =
+  var ts = nnkCall.newTree(nnkDotExpr.newTree(ident("View"), ident("new")))
   for x in xs:
     ts.add(quote do: getTypeId(`x`))
   ts
+
+proc populate(view: View) =
+  for e in entities:
+    var matches = true
+
+    for t in view.key:
+      if not e.has(t):
+        matches = false
+
+    if matches:
+      view.add(e)
+
+proc view*(ts: varargs[TypeId]): View =
+  let key = ViewKey.init(ts)
+  if not viewCache.hasKey(key):
+    viewCache[key] = View.new(ts)
+    populate(viewCache[key])
+  viewCache[key]
 
 ## Savable interface for the profile save
 template generateEnts*() =
@@ -159,25 +181,26 @@ when isMainModule:
   type Player = object
     test = 420
 
-  dumpAstGen:
-    View.new(Player, Pos)
-
   implSavable(Pos)
+  implLoadable(Pos)
+
   implSavable(Player)
+  implLoadable(Player)
 
   registerComponents:
     Pos
     Player
 
-  block:
-    var ent = spawn()
-    ent.add(Pos(x: 100.0, y: 200.0))
-    ent.add(Player())
+  expandMacros:
+    block:
+      var ent = spawn()
+      ent.add(Pos(x: 100.0, y: 200.0))
+      ent.add(Player())
 
-  block:
-    var ent = spawn()
-    ent.add(Pos(x: 100.0, y: 200.0))
+    block:
+      var ent = spawn()
+      ent.add(Pos(x: 100.0, y: 200.0))
 
-  var es = saveEntities()
-  resetEntities()
-  loadEntities(es)
+    var es = saveEntities()
+    resetEntities()
+    loadEntities(es)

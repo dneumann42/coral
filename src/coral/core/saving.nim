@@ -26,7 +26,7 @@ macro implSavable*(t: typedesc, vers = 1): untyped =
     proc save*(s: `t`): JsonNode = toJson(s)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
 
-macro implLoadable*(t: typedesc): untyped = 
+macro implLoadable*(t: typedesc): untyped =
   quote do:
     proc load*(T: type `t`, n: JsonNode): `t` =
-      `t`()
+      to(n, `t`)

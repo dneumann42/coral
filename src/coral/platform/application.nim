@@ -214,6 +214,11 @@ proc endDrawing() = ren.endDrawing()
 proc beginClip*(x, y, w, h: int) = ren.beginClip(x, y, w, h)
 proc endClip*() = ren.endClip()
 
+template withClip*(x, y, w, h: SomeNumber, blk: untyped) =
+  beginClip(x.int, y.int, w.int, h.int)
+  blk 
+  endClip()
+
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
   ren.pushColor(color(0.0, 0.0, 0.0, 0.0)):

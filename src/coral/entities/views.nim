@@ -1,16 +1,24 @@
 import ../core/[typeids, saving]
-import std/[sets, sequtils]
+import std/[sets, sequtils, hashes]
 
 import types
 
+export sets
+
 type
-  ViewKey = HashSet[TypeId]
+  ViewKey* = HashSet[TypeId]
 
 type
   View* = ref object
     valid*: bool
-    key: ViewKey
+    key*: ViewKey
     entities: seq[EntId]
+
+proc hash*(k: ViewKey): Hash =
+  hash($k)
+
+proc init*(T: type ViewKey, ts: varargs[TypeId]): T =
+  ts.toHashSet()
 
 proc new*(T: type View; key: HashSet[TypeId]): T = T(key: key, entities: @[])
 proc new*(T: type View; key: varargs[TypeId]): T = T.new(key.toSeq.toHashSet)

@@ -1,4 +1,4 @@
-import hashes, tables, macros
+import hashes, tables, macros,json
 
 type
   TypeId* = Hash
@@ -16,3 +16,6 @@ macro getTypeId*(t: typed): TypeId =
       typeIds[h] = name
       break
   result = newLit(h)
+
+# proc `%`*(id: TypeId): JsonNode =
+#   jsonInt(id.int)
