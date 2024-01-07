@@ -21,9 +21,10 @@ type
 
 macro implSavable*(t: typedesc, vers = 1): untyped =
   proc toJson[T](ty: T): JsonNode = %* ty
+  let saveId = ident("`%`")
   quote do:
     proc version*(T: type `t`): int = `vers`
-    proc save*(s: `t`): JsonNode = toJson(s)
+    proc `saveId`*(s: `t`): JsonNode = toJson(s)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
 
 macro implLoadable*(t: typedesc): untyped =
