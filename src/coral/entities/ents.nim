@@ -38,12 +38,11 @@ macro registerComponents*(ts: untyped) =
       var `n`* {.used.} = initCompBuff[`t`]())
   buffers
 
-macro add*[T](entId: EntId, comp: T) =
+macro add*(entId: EntId, comp: typed) =
   var t = getTypeInst(comp)
-  var id = getTypeId(T)
   var n = compBuffName(t)
   quote do:
-    indexes[int(`entId`) - 1][`id`] = `n`.add(`comp`)
+    indexes[int(`entId`) - 1][typeId(`t`)] = `n`.add(`comp`)
 
 macro has*(entId: EntId, t: TypeId): bool =
   quote do:
@@ -148,6 +147,7 @@ proc populate(view: View) =
     var matches = true
 
     for t in view.key:
+      echo t, " ", e.has(t)
       if not e.has(t):
         matches = false
 
@@ -160,6 +160,11 @@ proc view*(ts: varargs[TypeId]): View =
     viewCache[key] = View.new(ts)
     populate(viewCache[key])
   viewCache[key]
+
+macro view*(ts: openArray[typedesc]): View =
+  result = nnkCall.newTree(ident("view"))
+  for t in ts:
+    result.add(quote do: getTypeId(`t`))
 
 ## Savable interface for the profile save
 template generateEnts*() =
