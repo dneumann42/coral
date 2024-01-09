@@ -36,7 +36,6 @@ macro registerComponents*(ts: untyped) =
     bufferTypeCache.add(t)
     buffers.add(quote do:
       var `n`* {.used.} = initCompBuff[`t`]())
-    echo "REGISTER: ", t
   buffers
 
 macro add*[T](entId: EntId, comp: T) =
