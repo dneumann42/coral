@@ -52,11 +52,10 @@ macro has*[T](entId: EntId, t: typedesc[T]): bool =
   quote do:
     indexes[int(`entId`) - 1].hasKey(getTypeId(`t`))
 
-macro mget*[T](entId: EntId, t: typedesc[T]): lent T =
+macro mget*(entId: EntId, t: untyped): auto =
   var n = compBuffName(t)
-  var idx = getTypeId(T)
   quote do:
-    `n`.mget(indexes[int(`entId`) - 1][`idx`])
+    `n`.mget(indexes[int(`entId`) - 1][typeId(`t`)])
 
 macro componentBufferToJson(): auto =
   var xs = nnkStmtList.newTree()
@@ -180,6 +179,8 @@ template generateEnts*() =
     Ents()
 
 when isMainModule:
+  import unittest
+
   type Pos = object
     x, y: float
   type Player = object
@@ -195,16 +196,11 @@ when isMainModule:
     Pos
     Player
 
-  expandMacros:
-    block:
-      var ent = spawn()
-      ent.add(Pos(x: 100.0, y: 200.0))
-      ent.add(Player())
+  suite "Entities":
+    test "We can add components":
+      expandMacros:
+        var ent = spawn()
+        ent.add(Pos(x: 100.0, y: 200.0))
 
-    block:
-      var ent = spawn()
-      ent.add(Pos(x: 100.0, y: 200.0))
-
-    var es = saveEntities()
-    resetEntities()
-    loadEntities(es)
+      var pos = ent.mget(Pos)
+      echo pos[]

@@ -14,15 +14,13 @@ proc `%`*[T: SavableLoadable](buf: CompBuff[T]): JsonNode =
     "dead": % buf.dead,
   }
 
-# proc load*()
-
 proc initCompBuff*[T](): CompBuff[T] =
   result = CompBuff[T](data: @[], name: name(T))
 
 proc comps*[T](c: CompBuff[T]): lent seq[T] =
   result = c.data
 
-proc get*[T](buff: CompBuff[T]; idx: int): lent T =
+template get*[T](buff: CompBuff[T]; idx: int): lent T =
   result = buff.data[idx]
 
 proc mget*[T](buff: var CompBuff[T]; idx: int): ptr T =
