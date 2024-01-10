@@ -48,9 +48,9 @@ macro has*(entId: EntId, t: TypeId): bool =
   quote do:
     indexes[int(`entId`) - 1].hasKey(`t`)
 
-macro has*[T](entId: EntId, t: typedesc[T]): bool =
+macro has*(entId: EntId, t: untyped): bool =
   quote do:
-    indexes[int(`entId`) - 1].hasKey(getTypeId(`t`))
+    indexes[int(`entId`) - 1].hasKey(typeId(`t`))
 
 macro mget*(entId: EntId, t: untyped): auto =
   var n = compBuffName(t)
@@ -153,17 +153,17 @@ proc populate(view: View) =
     if matches:
       view.add(e)
 
-proc view*(ts: varargs[TypeId]): View =
+proc view2*(ts: varargs[TypeId]): View =
   let key = ViewKey.init(ts)
   if not viewCache.hasKey(key):
     viewCache[key] = View.new(ts)
     populate(viewCache[key])
   viewCache[key]
 
-macro view*(ts: openArray[typedesc]): View =
-  result = nnkCall.newTree(ident("view"))
+macro view*(ts: untyped): View =
+  result = nnkCall.newTree(ident("view2"))
   for t in ts:
-    result.add(quote do: getTypeId(`t`))
+    result.add(quote do: typeId(`t`))
 
 ## Savable interface for the profile save
 template generateEnts*() =
@@ -201,6 +201,13 @@ when isMainModule:
       expandMacros:
         var ent = spawn()
         ent.add(Pos(x: 100.0, y: 200.0))
+        # ent.add(Player())
 
       var pos = ent.mget(Pos)
       echo pos[]
+
+      echo ent.has(Pos)
+      echo ent.has(Player)
+
+      for id in view([Player, Pos]):
+        echo id
