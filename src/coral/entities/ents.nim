@@ -146,7 +146,6 @@ proc populate(view: View) =
     var matches = true
 
     for t in view.key:
-      echo t, " ", e.has(t)
       if not e.has(t):
         matches = false
 
@@ -154,11 +153,9 @@ proc populate(view: View) =
       view.add(e)
 
 proc view2*(ts: varargs[TypeId]): View =
-  let key = ViewKey.init(ts)
-  if not viewCache.hasKey(key):
-    viewCache[key] = View.new(ts)
-    populate(viewCache[key])
-  viewCache[key]
+  ## NOTE: we can't properly cache using this key
+  result = View.new(ts)
+  result.populate()
 
 macro view*(ts: untyped): View =
   result = nnkCall.newTree(ident("view2"))
@@ -201,7 +198,7 @@ when isMainModule:
       expandMacros:
         var ent = spawn()
         ent.add(Pos(x: 100.0, y: 200.0))
-        # ent.add(Player())
+        ent.add(Player())
 
       var pos = ent.mget(Pos)
       echo pos[]
@@ -209,5 +206,8 @@ when isMainModule:
       echo ent.has(Pos)
       echo ent.has(Player)
 
-      for id in view([Player, Pos]):
-        echo id
+      for id in view([Player]):
+        echo "HERE:", id
+
+      for id in view([Player]):
+        echo "HERE:", id

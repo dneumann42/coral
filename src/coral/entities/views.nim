@@ -12,7 +12,7 @@ type
   View* = ref object
     valid*: bool
     key*: ViewKey
-    entities: seq[EntId]
+    entities*: seq[EntId]
 
 proc hash*(k: ViewKey): Hash =
   hash($k)

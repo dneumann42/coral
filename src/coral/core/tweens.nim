@@ -52,7 +52,7 @@ type
     duration: float
     easing: EasingKind
 
-proc lerp*[T](a, b, t: T): T = a + (b - a) * t
+proc lerp*[T](a, b: T, t: float): T = a + (b - a) * t
 
 func value*[T](tween: Tween[T]): T = tween.value
 

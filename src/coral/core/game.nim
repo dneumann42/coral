@@ -18,6 +18,7 @@ type
     update
     draw
     unload
+    onEvent
 
   Game* = object
     shouldExit: bool
@@ -145,12 +146,16 @@ template start*(game: var Game) =
         closeWindow()
         break
 
+      for ev in pollEvents():
+        let event {.inject.} = ev
+        generatePluginStep[GameStep](onEvent, isActive)
+
       if shouldUpdate():
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
         generatePluginStep[GameStep](update, isActive)
 
       commandDispatch(cmds)
-      flush(events)
+      flushEvents()
 
       if game.shouldExit:
         closeWindow()
