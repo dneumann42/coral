@@ -24,10 +24,14 @@ macro implSavable*(t: typedesc, vers = 1): untyped =
   let saveId = ident("`%`")
   quote do:
     proc version*(T: type `t`): int = `vers`
-    proc `saveId`*(s: `t`): JsonNode = toJson(s)
     proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
+    proc `saveId`*(s: `t`): JsonNode = toJson(s)
 
 macro implLoadable*(t: typedesc): untyped =
   quote do:
     proc load*(T: type `t`, n: JsonNode): `t` =
       to(n, `t`)
+
+template implSaveLoad*(t: typedesc, version: int) =
+  implSavable(t, version)
+  implLoadable(t)

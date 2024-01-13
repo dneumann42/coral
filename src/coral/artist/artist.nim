@@ -51,6 +51,9 @@ proc screenWidth*(): int =
 proc screenHeight*(): int =
   renderer.windowSize().y.int
 
+proc screenSize*(): tuple[w, h: int] =
+  (screenWidth(), screenHeight())
+
 proc layerWidth*(): int =
   containerSize.x.int
 

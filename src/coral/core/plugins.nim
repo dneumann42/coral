@@ -15,6 +15,8 @@ macro plugin*(id, blk): auto =
   result = nnkStmtList.newTree()
 
   for child in blk.items:
+    if child.kind == nnkDiscardStmt:
+      continue
     if child.kind != nnkProcDef:
       raiseAssert("Expected a proc definition got " & child.treeRepr)
 
