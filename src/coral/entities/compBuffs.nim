@@ -39,5 +39,6 @@ proc add*[T](buff: var CompBuff[T]; comp: T): int =
     buff.data.add(comp)
 
 proc del*[T](buff: var CompBuff[T]; idx: int) =
-  buff.dead.add(idx)
-  buff.data[idx] = T.default()
+  if not buff.dead.contains(idx):
+    buff.dead.add(idx)
+    buff.data[idx] = T.default()

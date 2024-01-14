@@ -10,6 +10,8 @@ variantp Command:
   NewProfile(newId: string)
   LoadProfile(loadId: string)
   DeleteProfile(deleteId: string)
+  PauseGame
+  ResumeGame
   Exit
 
 type
@@ -34,6 +36,10 @@ proc `%`*(c: Command): JsonNode =
       result = %* {"kind": "LoadProfile", "loadId": loadId}
     DeleteProfile(deleteId):
       result = %* {"kind": "DeleteProfile", "deleteId": deleteId}
+    PauseGame:
+      result = %* {"kind": "PauseGame"}
+    ResumeGame:
+      result = %* {"kind": "ResumeGame"}
     Exit:
       result = %* {"kind": "Exit"}
 
@@ -63,6 +69,12 @@ proc clear*(self: var Commands) =
 
 proc pushScene*(self: var Commands, id: string) =
   self.stack.add(PushScene(id))
+
+proc pause*(self: var Commands) =
+  self.stack.add(PauseGame())
+
+proc resume*(self: var Commands) =
+  self.stack.add(ResumeGame())
 
 proc backScene*(self: var Commands) =
   self.stack.add(BackScene())

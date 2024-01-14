@@ -16,6 +16,7 @@ type
     loadScene
     unloadScene
     update
+    persistentUpdate
     draw
     unload
     onEvent
@@ -38,6 +39,7 @@ proc `=copy`(x: var Game; y: Game) {.error.}
 proc `=wasMoved`(x: var Game) {.error.}
 
 var isSceneSpecific: Table[PluginId, seq[SceneId]]
+var isPaused = false
 
 proc onScene*(pluginId: PluginId; sceneId: SceneId) =
   isSceneSpecific[pluginId] = isSceneSpecific.mgetOrPut(pluginId, @[]).concat(@[sceneId])
@@ -70,16 +72,19 @@ proc latestProfile*(game: Game): Option[Profile] =
   profiles.sort((a, b: Profile) => cmp(b.lastWritten, a.lastWritten))
   profiles[0].some()
 
-proc isActive(id: PluginId): bool =
+proc isActivePersistent(id: PluginId): bool =
   if not isScene(id) and isSceneSpecific.hasKey(id) and isSceneSpecific[
       id].len > 0:
-    if sequtils.any(isSceneSpecific[id], isActive):
+    if sequtils.any(isSceneSpecific[id], isActivePersistent):
       return true
     else:
       return false
   if not isScene(id) or activeScene().isNone:
     return true
   result = activeScene().get("") == id
+
+proc isActive(id: PluginId): bool =
+  result = id.isActivePersistent() and not isPaused
 
 proc shouldLoadScene(id: PluginId): bool =
   result = id.isActive() and id.shouldLoad()
@@ -88,7 +93,7 @@ proc shouldUnloadScene(id: PluginId): bool =
   result = id.shouldUnload()
 
 proc isActiveAndReady(id: PluginId): bool =
-  result = id.isActive() and not id.shouldLoad(keep = true)
+  result = id.isActivePersistent() and not id.shouldLoad(keep = true)
 
 template start*(game: var Game) =
   generateEnts()
@@ -134,6 +139,10 @@ template start*(game: var Game) =
           loadGameProfile(loadId, commands.addr, js)
           generateStateLoads(js)
           info("Loaded profile: " & loadId)
+        PauseGame:
+          isPaused = true
+        ResumeGame:
+          isPaused = false
         DeleteProfile(deleteId):
           game.deleteProfile(deleteId)
           info("Deleted profile: " & deleteId)
@@ -158,11 +167,12 @@ template start*(game: var Game) =
 
       for ev in pollEvents():
         let event {.inject.} = ev
-        generatePluginStep[GameStep](onEvent, isActive)
+        generatePluginStep[GameStep](onEvent, isActivePersistent)
 
       if shouldUpdate():
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
         generatePluginStep[GameStep](update, isActive)
+        generatePluginStep[GameStep](persistentUpdate, isActivePersistent)
         generatePluginStep[GameStep](unloadScene, shouldUnloadScene)
 
       commandDispatch(cmds)

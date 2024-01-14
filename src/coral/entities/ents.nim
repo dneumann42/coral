@@ -144,10 +144,11 @@ macro saveEntities*(): auto =
 
 macro loadEntities*(node: JsonNode) =
   var first = quote do:
+    entities.setLen(0)
     nextId = `node`["nextId"].getInt
     for ent in `node`["entities"]:
-      if not entities.contains(get.getInt.EntId):
-        entities.add(ent.getInt.EntId)
+      let eid = ent.getInt.EntId
+      entities.add(eid)
     for idx in `node`["indexes"]:
       var tbl = to(idx, Table[string, int])
       indexes.add(tbl.pairs.toSeq.mapIt((parseInt(it[0]).TypeId, it[1])).toTable)
