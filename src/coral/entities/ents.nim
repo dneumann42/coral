@@ -17,14 +17,22 @@ const bufferTypeCache = CacheSeq"bufferTypeCache"
 proc getEntities*(): seq[EntId] =
   entities
 
+var nextId = 0
 proc nextEntId(): int =
-  var nextId {.global.} = 0
-  inc(nextId); nextId
+  inc(nextId);
+  nextId
+proc setEntIdCurrentValue*(id: int) =
+  nextId = id
+proc getEntIdCurrentValue*(): int =
+  nextId
 
 proc isDead*(id: EntId): bool =
   dead.contains(id)
 
 proc spawn*(): EntId =
+  if dead.len > 0:
+    return dead.pop()
+
   result = nextEntId().EntId
   entities.add(result)
   indexes.add(initTable[TypeId, int]())
@@ -67,6 +75,10 @@ template del*(entId: EntId) =
   let ixs = indexes[entId.int - 1]
   for idx in ixs.keys:
     delete(entId, idx)
+
+template deleteAllEntities*() =
+  for ent in entities:
+    ent.del()
 
 macro addIt*(entId: EntId, comp: typed) =
   var t = getTypeInst(comp)
@@ -200,7 +212,7 @@ macro view*(ts: untyped): View =
 template generateEnts*() =
   type Ents* {.inject.} = object
   proc version*(T: type Ents): int = 1
-  proc save*(s: Ents): JsonNode =
+  proc `%`*(s: Ents): JsonNode =
     info("Saved Entities")
     saveEntities()
   proc migrate*(T: type Ents, js: JsonNode): JsonNode = js

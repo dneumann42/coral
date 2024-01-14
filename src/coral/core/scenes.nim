@@ -6,6 +6,7 @@ type SceneId* = string
 var allScenes: HashSet[string]
 var sceneStack: seq[SceneId]
 var loadSet: HashSet[string]
+var unloadSet: HashSet[string]
 
 proc sceneId*[T](sc: T): SceneId =
   name(type(sc))
@@ -19,8 +20,16 @@ proc shouldLoad*(id: SceneId, keep = false): bool =
   if result and not keep:
     loadSet.excl(id)
 
+proc shouldUnload*(id: SceneId, keep = false): bool =
+  result = unloadSet.contains(id)
+  if result and not keep:
+    unloadSet.excl(id)
+
 proc canLoadScene*(id: SceneId): bool =
   result = loadSet.contains(id)
+
+proc canUnloadScne*(id: SceneId): bool =
+  result = unloadSet.contains(id)
 
 proc registerScene*(id: SceneId) =
   allScenes.incl(id)
@@ -35,6 +44,7 @@ proc pushScene*(id: SceneId) =
 proc popScene*(): Option[SceneId] =
   if len(sceneStack) > 0:
     result = sceneStack.pop().some
+    unloadSet.incl(result.get())
   if Some(@sc) ?= activeScene():
     loadSet.incl(sc)
 

@@ -58,7 +58,7 @@ proc save*(profile: Profile, name: string, state: Savable) =
   try:
     if not dirExists(statesDir):
       createDir(statesDir)
-    var js = state.save()
+    var js = % state
     js["version"] = % typeof(state).version
     writeFile(statesDir / (name & ".json"), js.pretty)
   except CatchableError:

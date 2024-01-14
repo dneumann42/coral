@@ -6,7 +6,7 @@ import ../entities/ents
 
 import std/[logging, sets, sequtils, json, typetraits, options, macros, tables]
 import coral/core
-import coral/core/profiles
+import coral/core/[profiles, saving]
 
 export options
 
@@ -20,12 +20,18 @@ type
     unload
     onEvent
 
+  EntIdIndex* = object
+    nextId: int
+
   Game* = object
     shouldExit: bool
     startingScene: string
     title: string
     name: string
     profile: Option[Profile]
+
+implSavable(EntIdIndex, 1)
+implLoadable(EntIdIndex)
 
 proc `=sink`(x: var Game; y: Game) {.error.}
 proc `=copy`(x: var Game; y: Game) {.error.}
@@ -78,19 +84,25 @@ proc isActive(id: PluginId): bool =
 proc shouldLoadScene(id: PluginId): bool =
   result = id.isActive() and id.shouldLoad()
 
+proc shouldUnloadScene(id: PluginId): bool =
+  result = id.shouldUnload()
+
 proc isActiveAndReady(id: PluginId): bool =
   result = id.isActive() and not id.shouldLoad(keep = true)
 
 template start*(game: var Game) =
   generateEnts()
 
-  proc loadGameProfile(profileId: string; cmds: ptr Commands, js: var JsonNode) =
+  proc loadGameProfile(profileId: string; cmds: ptr Commands;
+      js: var JsonNode) =
     var profile = Profile(name: profileId, gameName: game.name)
     var states = profile.load(js) do (jn: string; js: JsonNode) -> JsonNode:
       genMigrationFun(jn, js, [Commands, Ents])
     game.profile = profile.some()
     if states.hasKey(name(Commands)):
       cmds[] = Commands.load(Commands.migrate(states[name(Commands)]))
+    if states.hasKey(name(EntIdIndex)):
+      setEntIdCurrentValue(states[name(EntIdIndex)]["nextId"].getInt)
     discard Ents.load(Ents.migrate(states[name(Ents)]))
 
   template commandDispatch(commands: var Commands) =
@@ -98,7 +110,9 @@ template start*(game: var Game) =
     commands.clear()
     template saveGame(profile: Profile) =
       let pluginStates = generateStateSaves()
-      saveProfile(profile, [(commands, Commands), (Ents(), Ents)], pluginStates)
+      let entId = EntIdIndex(nextid: getEntIdCurrentValue())
+      saveProfile(profile, [(commands, Commands), (Ents(), Ents), (entId,
+          EntIdIndex)], pluginStates)
 
     for cmd in commandQueue:
       match cmd:
@@ -153,6 +167,7 @@ template start*(game: var Game) =
       if shouldUpdate():
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
         generatePluginStep[GameStep](update, isActive)
+        generatePluginStep[GameStep](unloadScene, shouldUnloadScene)
 
       commandDispatch(cmds)
       flushEvents()
