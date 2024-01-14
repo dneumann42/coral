@@ -6,7 +6,7 @@ import ../core/[saving, typeids]
 
 export types, views
 
-var entities = newSeq[EntId]()
+var entities = initHashSet[EntId]()
 var dead = initHashSet[EntId]()
 var indexes = newSeq[Table[TypeId, int]]()
 var viewCache = initTable[ViewKey, View]()
@@ -15,7 +15,7 @@ const bufferCache = CacheSeq"bufferCache"
 const bufferTypeCache = CacheSeq"bufferTypeCache"
 
 proc getEntities*(): seq[EntId] =
-  entities
+  entities.toSeq
 
 var nextId = 0
 
@@ -31,7 +31,7 @@ proc spawn*(): EntId =
     return dead.pop()
 
   result = nextEntId().EntId
-  entities.add(result)
+  entities.incl(result)
   indexes.add(initTable[TypeId, int]())
 
 template compBuffName(n: NimNode): NimNode =
@@ -142,16 +142,21 @@ macro saveEntities*(): auto =
       `xs`
       buffs
 
+proc initFromJson*[T: HashSet[EntId]](src: var T, node: JsonNode, path: var string) =
+  for itm in node:
+    src.incl(itm.getInt.EntId)
+
 macro loadEntities*(node: JsonNode) =
   var first = quote do:
-    entities.setLen(0)
     nextId = `node`["nextId"].getInt
-    for ent in `node`["entities"]:
-      let eid = ent.getInt.EntId
-      entities.add(eid)
+    entities = to(`node`["entities"], HashSet[EntId])
+
+    indexes.setLen(0)
     for idx in `node`["indexes"]:
       var tbl = to(idx, Table[string, int])
       indexes.add(tbl.pairs.toSeq.mapIt((parseInt(it[0]).TypeId, it[1])).toTable)
+
+    dead.clear()
     for d in `node`["dead"]:
       dead.incl(d.getInt.EntId)
 
