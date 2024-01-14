@@ -21,7 +21,7 @@ var events = Events.init()
 proc isKind*(ev: SomeEvent, t: typedesc): bool =
   ev.id == name(t)
 
-template withIs*(ev: SomeEvent, t: typedesc, blk: untyped) =
+template whenEvent*(ev: SomeEvent, t: typedesc, blk: untyped) =
   if ev.isKind(t):
     ev.persist = false
     let event {.inject.} = ev.get(t)

@@ -8,6 +8,7 @@ type PluginId* = string
 const functions = CacheTable"functions"
 const functionCount = CacheTable"functionCounts"
 const priority = CacheTable"priority"
+const states = CacheTable"states"
 
 var enabled: HashSet[PluginId]
 
@@ -17,6 +18,12 @@ macro plugin*(id, blk): auto =
   for child in blk.items:
     if child.kind == nnkDiscardStmt:
       continue
+
+    if child.kind == nnkCall:
+      if child[0].repr == "state":
+        states[id.repr] = child[1]
+        continue
+
     if child.kind != nnkProcDef:
       raiseAssert("Expected a proc definition got " & child.treeRepr)
 
@@ -73,6 +80,12 @@ macro register*[S: enum](id: PluginId, step: S, fn: typed) =
   functionCount[idStep].intVal = count + 1
   functions[idStep & "|" & $count] = fn
 
+macro generateStates*(id: PluginId): untyped =
+  var stmts = nnkStmtList.newTree()
+  if states.hasKey(id.repr):
+    stmts.add(states[id.repr])
+  stmts
+
 macro generatePluginStep*[S: enum](step: S, predicate: untyped = false): auto =
   result = nnkStmtList.newTree()
 
@@ -119,6 +132,7 @@ macro generatePluginStep*[S: enum](step: S, predicate: untyped = false): auto =
       if predicate != newLit(false):
         quote do:
           if isEnabled(`pluginId`) and `predicate`(`pluginId`):
+            generateStates(`pluginId`)
             `call`
       else:
         quote do:

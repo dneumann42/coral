@@ -7,6 +7,7 @@ import ../core/[saving, typeids]
 export types, views
 
 var entities = newSeq[EntId]()
+var dead = initHashSet[EntId]()
 var indexes = newSeq[Table[TypeId, int]]()
 var viewCache = initTable[ViewKey, View]()
 
@@ -20,6 +21,9 @@ proc nextEntId(): int =
   var nextId {.global.} = 0
   inc(nextId); nextId
 
+proc isDead*(id: EntId): bool =
+  dead.contains(id)
+
 proc spawn*(): EntId =
   result = nextEntId().EntId
   entities.add(result)
@@ -28,21 +32,51 @@ proc spawn*(): EntId =
 template compBuffName(n: NimNode): NimNode =
   ident(($n).toLower & "Buff")
 
+macro generateDeleters*(ts: untyped): untyped =
+  var xs = nnkBracket.newTree()
+  for t in ts:
+    let n = compBuffName(t)
+    xs.add(quote do:
+      (typeId(`t`), proc(idx: int) = `n`.del(idx)))
+
+  quote do:
+    proc delete*(e: EntId, id: TypeId) =
+      var idx = 0
+      for (t, fn) in `xs`:
+        if t == id:
+          fn(indexes[e.int - 1][t])
+          break
+        inc(idx)
+
 macro registerComponents*(ts: untyped) =
   var buffers = nnkStmtList.newTree()
+
   for t in ts:
     let n = compBuffName(t)
     bufferCache.add(n)
     bufferTypeCache.add(t)
     buffers.add(quote do:
       var `n`* {.used.} = initCompBuff[`t`]())
-  buffers
 
-macro add*(entId: EntId, comp: typed) =
+  quote do:
+    `buffers`
+    generateDeleters(`ts`)
+
+template del*(entId: EntId) =
+  dead.incl(entId)
+  let ixs = indexes[entId.int - 1]
+  for idx in ixs.keys:
+    delete(entId, idx)
+
+macro addIt*(entId: EntId, comp: typed) =
   var t = getTypeInst(comp)
   var n = compBuffName(t)
   quote do:
     indexes[int(`entId`) - 1][typeId(`t`)] = `n`.add(`comp`)
+
+proc add*[T](entId: EntId, comp: T): EntId {.discardable.} =
+  entId.addIt(comp)
+  entId
 
 macro has*(entId: EntId, t: TypeId): bool =
   quote do:
@@ -197,8 +231,8 @@ when isMainModule:
     test "We can add components":
       expandMacros:
         var ent = spawn()
-        ent.add(Pos(x: 100.0, y: 200.0))
-        ent.add(Player())
+          .add(Pos(x: 100.0, y: 200.0))
+          .add(Player())
 
       var pos = ent.mget(Pos)
       echo pos[]
@@ -211,3 +245,8 @@ when isMainModule:
 
       for id in view([Player]):
         echo "HERE:", id
+
+      ent.del()
+
+      # for id in view([Player]):
+      #   echo "NOT HERE:", id

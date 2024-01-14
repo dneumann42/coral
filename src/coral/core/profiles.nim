@@ -1,4 +1,4 @@
-import std/[json, os, tables, typetraits, macros, times]
+import std/[json, os, tables, typetraits, macros, times, strutils]
 
 import ../platform/application
 import saving
@@ -64,10 +64,20 @@ proc save*(profile: Profile, name: string, state: Savable) =
   except CatchableError:
     echo getCurrentExceptionMsg()
 
-proc load*(profile: var Profile, migrate: proc(name: string,
+proc save*(profile: Profile, name: string, js: JsonNode) =
+  let saveDir = getProfilesDir(profile.gameName) / profile.name / "pluginStates"
+  try:
+    if not dirExists(saveDir):
+      createDir(saveDir)
+    writeFile(saveDir / (name & ".json"), js.pretty)
+  except CatchableError:
+    echo getCurrentExceptionMsg()
+
+proc load*(profile: var Profile, js: var JsonNode, migrate: proc(name: string,
     js: JsonNode): JsonNode): Table[string, JsonNode] =
   let saveDir = getProfilesDir(profile.gameName) / profile.name
   let statesDir = saveDir / "states"
+  let pluginStatesDir = saveDir / "pluginStates"
 
   try:
     if not dirExists(saveDir):
@@ -83,6 +93,13 @@ proc load*(profile: var Profile, migrate: proc(name: string,
       let name = path[0..<searchExtPos(path)].extractFilename()
       var stateJson = parseJson(readFile(statesDir / path))
       result[name] = migrate(name, stateJson)
+
+    for (kind, path) in walkDir(pluginStatesDir, relative = true):
+      if kind != pcFile:
+        continue
+      js[(path).extractFilename()[0..^6].normalize()] = parseJson(readFile(
+          pluginStatesDir / path))
+
   except CatchableError:
     echo getCurrentExceptionMsg()
 
@@ -110,14 +127,21 @@ macro genMigrationFun*(jsName: string, js: JsonNode,
     result.add(check)
   result.add(quote do: return `js`)
 
-macro saveProfile*(profile: Profile, states: untyped): untyped =
+proc saveProfilePluginStates*(profile: Profile, pluginStates: JsonNode) =
+  echo pluginStates.pretty
+  for name, state in pluginStates:
+    profile.save(name, state)
+
+macro saveProfile*(profile: Profile, states: untyped,
+    pluginStates: JsonNode): untyped =
   var saves = nnkStmtList.newTree()
   for state in states:
     let val = state[0]
     let id = state[1]
     saves.add(quote do: `profile`.save(name(`id`), `val`))
   quote do:
-    `profile`.saveProfile()
+    saveProfile(`profile`)
+    saveProfilePluginStates(`profile`, `pluginStates`)
     `saves`
 
 static:
@@ -129,7 +153,7 @@ when isMainModule:
   echo getProfilesDir("TestGame")
 
   echo getProfiles("TestGame")
-  saveProfile(prof, [])
+  saveProfile(prof, [], %* {})
 
   # type SaveState* = object
   #   magic = 420

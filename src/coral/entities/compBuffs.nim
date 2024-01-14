@@ -15,7 +15,10 @@ proc `%`*[T: SavableLoadable](buf: CompBuff[T]): JsonNode =
   }
 
 proc initCompBuff*[T](): CompBuff[T] =
-  result = CompBuff[T](data: @[], name: name(T))
+  result = CompBuff[T](
+    data: @[], name: name(T),
+    dead: @[]
+  )
 
 proc comps*[T](c: CompBuff[T]): lent seq[T] =
   result = c.data
@@ -33,3 +36,7 @@ proc add*[T](buff: var CompBuff[T]; comp: T): int =
   else:
     result = buff.data.len()
     buff.data.add(comp)
+
+proc del*[T](buff: var CompBuff[T]; idx: int) =
+  buff.dead.add(idx)
+  buff.data[idx] = T.default()

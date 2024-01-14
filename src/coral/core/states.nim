@@ -1,72 +1,60 @@
-import json, jsony, tables, options, typetraits, fusion/matching
+import json, jsony, tables, options, typetraits, fusion/matching, macros,
+    macrocache, std/enumerate
+import saving, strutils
 
-{.experimental: "caseStmtMacros".}
+const states = CacheSeq"states"
+const stateNames = CacheSeq"stateName"
+const stateTypes = CacheSeq"stateTypes"
+const saves = CacheSeq"saves"
 
-type
-  JsonString = string
-  GameState* = object
-    version = 1
-    state: Table[string, JsonString]
-    currentScene*: Option[string]
+macro registerState*(T: typed): untyped =
+  let id = ident(T.repr)
+  let varName = ident(id.repr.normalize())
+  stateNames.add(varName)
+  stateTypes.add(id)
+  states.add(
+    quote do:
+    var `varName` = default(`id`))
+  let js = ident("%")
+  saves.add(quote do: `js`(`varName`))
 
-type AbstractGameState = ref object of RootObj
-type GenericGameState[T] = ref object of AbstractGameState
-  state: T
+macro registerState*(T: typed, name: untyped): untyped =
+  let id = ident(T.repr)
+  let varName = ident(name.repr.normalize())
+  stateNames.add(varName)
+  stateTypes.add(id)
+  states.add(
+    quote do:
+    var `varName` = default(`id`))
 
-var shouldSerialize = false
-var states = initTable[string, AbstractGameState]()
+macro generatePluginJson*(): JsonNode =
+  macro arr(js: untyped): untyped =
+    var xs = nnkStmtList.newTree()
+    for name in stateNames:
+      let s = name.repr
+      xs.add(quote do:
+        `js`.add(`s`, % `name`))
+    xs
 
-proc mget*[T](st: GameState, t: typedesc[T]): ptr T =
-  if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
-    states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(
-        T)).AbstractGameState
-  result = ((GenericGameState[T])states[name(t)]).state.addr
+  quote do:
+    block:
+      var js {.inject.} = newJObject()
+      arr(js)
+      js
 
-proc mget2*[T](st: GameState, t: typedesc[T]): lent var T =
-  if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
-    states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(
-        T)).AbstractGameState
-  result = ((GenericGameState[T])states[name(t)]).state
+macro generateStateLoads*(js: untyped): untyped =
+  var xs = nnkStmtList.newTree()
+  for i, state in enumerate(stateNames):
+    let n = newLit($state)
+    let ty = stateTypes[i]
+    xs.add(quote do: `state` = `ty`.load(`js`[`n`]))
+  xs
 
-proc get*[T](st: GameState, t: typedesc[T]): T =
-  if not states.hasKey(name(t)) and st.state.hasKey(name(t)):
-    states[name(t)] = GenericGameState[T](state: st.state[name(t)].fromJson(
-        T)).AbstractGameState
-  result = ((GenericGameState[T])states[name(t)]).state
+template generateStateSaves*(): untyped =
+  generatePluginJson()
 
-proc set*[T](st: var GameState, state: T) =
-  states[name(T)] = GenericGameState[T](state: state).AbstractGameState
-
-template withState*[T](st: GameState, t: typedesc[T], blk: untyped) =
-  blk(getState[T](st, t))
-
-template withState*[T](st: GameState, t: typedesc[T], v: untyped,
-    blk: untyped) =
-  blk(getState[T](st, t), v)
-
-template withState*[T](st: var GameState, t: typedesc[T], blk: untyped) =
-  var nst = getState[T](st, t)
-  blk(nst)
-  setState[T](st, nst)
-
-template withState*[T](st: var GameState, t: typedesc[T], v: untyped,
-    blk: untyped) =
-  var nst = getState[T](st, t)
-  blk(nst, v)
-  setState[T](st, nst)
-
-proc init*(T: type GameState, scene = none(string)): T =
-  result.currentScene = scene
-
-proc serialize*(gs: GameState) =
-  shouldSerialize = true
-
-proc update*() =
-  shouldSerialize = false
-
-proc isSceneActive*(self: GameState, sc: string): bool =
-  if Some(@id) ?= self.currentScene:
-    result = sc == id
-
-proc activeScene*(self: GameState): Option[string] =
-  self.currentScene
+macro generateStates*(): untyped =
+  var stmts = nnkStmtList.newTree()
+  for state in states:
+    stmts.add(state)
+  stmts

@@ -39,9 +39,6 @@ proc onScene*(pluginId: PluginId; sceneId: SceneId) =
 func resources*(game: var Game): var Resources =
   game.resources
 
-func state*(game: var Game): var GameState =
-  game.state
-
 func init*(T: type Game; name: string; startingScene = none(SceneId);
     title = ""): T =
   T(startingScene: startingScene.get(""),
@@ -87,20 +84,21 @@ proc isActiveAndReady(id: PluginId): bool =
 template start*(game: var Game) =
   generateEnts()
 
-  proc loadGameProfile(profileId: string; cmds: ptr Commands) =
+  proc loadGameProfile(profileId: string; cmds: ptr Commands, js: var JsonNode) =
     var profile = Profile(name: profileId, gameName: game.name)
-    var states = profile.load() do (jn: string; js: JsonNode) -> JsonNode:
+    var states = profile.load(js) do (jn: string; js: JsonNode) -> JsonNode:
       genMigrationFun(jn, js, [Commands, Ents])
     game.profile = profile.some()
     if states.hasKey(name(Commands)):
       cmds[] = Commands.load(Commands.migrate(states[name(Commands)]))
     discard Ents.load(Ents.migrate(states[name(Ents)]))
 
-  proc commandDispatch(commands: var Commands) =
+  template commandDispatch(commands: var Commands) =
     var commandQueue = commands.toSeq()
     commands.clear()
     template saveGame(profile: Profile) =
-      saveProfile(profile, [(commands, Commands), (Ents(), Ents)])
+      let pluginStates = generateStateSaves()
+      saveProfile(profile, [(commands, Commands), (Ents(), Ents)], pluginStates)
 
     for cmd in commandQueue:
       match cmd:
@@ -122,7 +120,9 @@ template start*(game: var Game) =
             profile.saveGame()
             info("Saved profile: " & profile.name)
         LoadProfile(loadId):
-          loadGameProfile(loadId, commands.addr)
+          var js = newJObject()
+          loadGameProfile(loadId, commands.addr, js)
+          generateStateLoads(js)
           info("Loaded profile: " & loadId)
         DeleteProfile(deleteId):
           game.deleteProfile(deleteId)
@@ -133,12 +133,12 @@ template start*(game: var Game) =
       cmds {.inject, used.} = Commands.init()
       artist {.inject, used.} = Artist.init()
       atlas {.inject, used.} = Atlas.init()
-      states {.inject, used.} = GameState.init()
       events {.inject, used.} = Events.init()
       resources {.inject, used.} = Resources.init()
 
     initializeWindow(title = game.title)
     pushScene(game.startingScene)
+    generateStates()
     generatePluginStep[GameStep](load)
 
     while updateWindow():
