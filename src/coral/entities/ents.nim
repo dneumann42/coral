@@ -18,12 +18,9 @@ proc getEntities*(): seq[EntId] =
   entities
 
 var nextId = 0
+
 proc nextEntId(): int =
-  inc(nextId);
-  nextId
-proc setEntIdCurrentValue*(id: int) =
-  nextId = id
-proc getEntIdCurrentValue*(): int =
+  inc(nextId)
   nextId
 
 proc isDead*(id: EntId): bool =
@@ -132,20 +129,30 @@ macro saveEntities*(): auto =
 
   quote do:
     block:
+      var deadJs = newJArray()
+      for deadIdx in dead:
+        deadJs.add( % deadIdx)
+
       var buffs {.inject.} = %* {
+        "nextId": % nextId,
         "entities": % entities,
         "indexes": % indexes,
+        "dead": deadJs,
         "components": componentBufferToJson()}
       `xs`
       buffs
 
 macro loadEntities*(node: JsonNode) =
   var first = quote do:
+    nextId = `node`["nextId"].getInt
     for ent in `node`["entities"]:
-      entities.add(ent.getInt.EntId)
+      if not entities.contains(get.getInt.EntId):
+        entities.add(ent.getInt.EntId)
     for idx in `node`["indexes"]:
       var tbl = to(idx, Table[string, int])
       indexes.add(tbl.pairs.toSeq.mapIt((parseInt(it[0]).TypeId, it[1])).toTable)
+    for d in `node`["dead"]:
+      dead.incl(d.getInt.EntId)
 
   ## Note: this depends on components and buffer cache
   ## having the same order, we should sort both to ensure

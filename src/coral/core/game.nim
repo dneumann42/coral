@@ -101,8 +101,6 @@ template start*(game: var Game) =
     game.profile = profile.some()
     if states.hasKey(name(Commands)):
       cmds[] = Commands.load(Commands.migrate(states[name(Commands)]))
-    if states.hasKey(name(EntIdIndex)):
-      setEntIdCurrentValue(states[name(EntIdIndex)]["nextId"].getInt)
     discard Ents.load(Ents.migrate(states[name(Ents)]))
 
   template commandDispatch(commands: var Commands) =
@@ -110,9 +108,7 @@ template start*(game: var Game) =
     commands.clear()
     template saveGame(profile: Profile) =
       let pluginStates = generateStateSaves()
-      let entId = EntIdIndex(nextid: getEntIdCurrentValue())
-      saveProfile(profile, [(commands, Commands), (Ents(), Ents), (entId,
-          EntIdIndex)], pluginStates)
+      saveProfile(profile, [(commands, Commands), (Ents(), Ents)], pluginStates)
 
     for cmd in commandQueue:
       match cmd:
