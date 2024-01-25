@@ -6,10 +6,13 @@ import std/[json, macros]
 export json
 
 type
+  Migratable* {.explain.} = concept type T
+    T.migrate(JsonNode) is JsonNode
+
   Savable* {.explain.} = concept x, type T
+    T is Migratable
     x.`%`() is JsonNode
     T.version is int
-    T.migrate(JsonNode) is JsonNode
 
   Loadable* {.explain.} = concept type T
     T is Savable
@@ -19,13 +22,22 @@ type
     T is Savable
     T is Loadable
 
-macro implSavable*(t: typedesc, vers = 1): untyped =
+macro implSavableVersioned*(t: typedesc, vers = 1): untyped =
   proc toJson[T](ty: T): JsonNode = %* ty
   let saveId = ident("`%`")
   quote do:
     proc version*(T: type `t`): int = `vers`
-    proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
     proc `saveId`*(s: `t`): JsonNode = toJson(s)
+
+macro implMigratable*(t: typedesc, vers = 1): untyped =
+  proc toJson[T](ty: T): JsonNode = %* ty
+  let saveId = ident("`%`")
+  quote do:
+    proc migrate*(T: type `t`, js: JsonNode): JsonNode = js
+
+template implSavable*(t: typedesc, vers = 1): auto =
+  implSavableVersioned(t, vers)
+  implMigratable(t, vers)
 
 macro implLoadable*(t: typedesc): untyped =
   quote do:
