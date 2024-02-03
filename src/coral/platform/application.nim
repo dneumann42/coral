@@ -75,6 +75,8 @@ proc initializeWindow*(title: string) =
   discard glSetSwapInterval(-1)
 
   discard setHint("SDL_HINT_RENDER_SCALE_QUALITY", "2")
+  discard setHint("SDL_HINT_RENDER_LINE_METHOD", "3")
+  discard glSetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4)
 
   setRenderer(createRenderer(
     window = getWindow(),

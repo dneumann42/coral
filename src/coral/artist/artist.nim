@@ -16,6 +16,9 @@ type
     center
     bottom
 
+  DrawRect* = object
+    x*, y*, w*, h*: float 
+
   Layer* = ref object
     depth*: int
     camera*: bool
@@ -24,6 +27,7 @@ type
   Artist* = object
     camera: Camera
     layers: seq[Layer]
+    draws*: seq[DrawRect]
 
 # proc `=copy`(dest: var Artist; source: Artist) {.error.}
 # proc `=wasMoved`(x: var Artist) {.error.}
@@ -125,3 +129,8 @@ proc paint*(artist: var Artist) =
     let src = (0.0, 0.0, w.float, h.float)
     let dst = (0.0, 0.0, w.float, h.float)
     texture(layer.target, src, dst)
+
+  for shape in artist.draws:
+    rect(shape.x, shape.y, shape.w, shape.h, color=color(1.0, 0.5, 0.0, 1.0))
+
+  artist.draws.setLen(0)

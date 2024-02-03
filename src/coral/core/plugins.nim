@@ -1,6 +1,7 @@
 import tools, hashes, rdstdin, tables, strformat, sets, strutils, sugar,
     strutils, options, sequtils, algorithm
 
+import dynlib
 import std/[macros, macrocache]
 
 type PluginId* = string
@@ -16,36 +17,58 @@ var enabled: HashSet[PluginId]
 macro plugin*(id, blk): auto =
   result = nnkStmtList.newTree()
   pluginNames.add(id)
-
   for child in blk.items:
     if child.kind == nnkDiscardStmt:
       continue
-
     if child.kind == nnkCall:
       if child[0].repr == "state":
         states[id.repr] = child[1]
         continue
-
     if child.kind != nnkProcDef:
       raiseAssert("Expected a proc definition got " & child.treeRepr)
-
     let
       name = child[0]
       newIdStr = $child[0] & $id
       newId = ident(newIdStr)
-
     var
       newProc = nnkProcDef.newTree(nnkPostfix.newTree(ident("*"), newId))
       idx = 0
-
     for inner in child.items:
       if idx > 0:
         newProc.add(inner)
       idx += 1
-
+    # newProc[4] = nnkPragma.newTree(ident("rtl"))
     let reg = nnkCall.newTree(ident("register"), newLit($id), name, ident(newIdStr))
     result.add(quote do: `newProc`; `reg`)
+  let name = $id
+  result.add(quote do: enable(`name`))
 
+macro dynPlugin*(id, blk): auto =
+  result = nnkStmtList.newTree()
+  pluginNames.add(id)
+  for child in blk.items:
+    if child.kind == nnkDiscardStmt:
+      continue
+    if child.kind == nnkCall:
+      if child[0].repr == "state":
+        states[id.repr] = child[1]
+        continue
+    if child.kind != nnkProcDef:
+      raiseAssert("Expected a proc definition got " & child.treeRepr)
+    let
+      name = child[0]
+      newIdStr = $child[0] & $id
+      newId = ident(newIdStr)
+    var
+      newProc = nnkProcDef.newTree(nnkPostfix.newTree(ident("*"), newId))
+      idx = 0
+    for inner in child.items:
+      if idx > 0:
+        newProc.add(inner)
+      idx += 1
+    newProc[4] = nnkPragma.newTree(ident("rtl"))
+    let reg = nnkCall.newTree(ident("register"), newLit($id), name, ident(newIdStr))
+    result.add(quote do: `newProc`; `reg`)
   let name = $id
   result.add(quote do: enable(`name`))
 
