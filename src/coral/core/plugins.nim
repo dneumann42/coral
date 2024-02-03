@@ -9,11 +9,13 @@ const functions = CacheTable"functions"
 const functionCount = CacheTable"functionCounts"
 const priority = CacheTable"priority"
 const states = CacheTable"states"
+const pluginNames = CacheSeq"pluginNames"
 
 var enabled: HashSet[PluginId]
 
 macro plugin*(id, blk): auto =
   result = nnkStmtList.newTree()
+  pluginNames.add(id)
 
   for child in blk.items:
     if child.kind == nnkDiscardStmt:
@@ -85,6 +87,12 @@ macro generateStates*(id: PluginId): untyped =
   if states.hasKey(id.repr):
     stmts.add(states[id.repr])
   stmts
+
+macro generatePluginEnum*(): auto =
+  var arr: seq[NimNode] = @[]
+  for p in pluginNames:
+    arr.add(arr)
+  var en = newEnum(ident("Plugins"), arr, true, false)
 
 macro generatePluginStep*[S: enum](step: S, predicate: untyped = false): auto =
   result = nnkStmtList.newTree()

@@ -41,8 +41,11 @@ proc `=wasMoved`(x: var Game) {.error.}
 var isSceneSpecific: Table[PluginId, seq[SceneId]]
 var isPaused = false
 
-proc onScene*(pluginId: PluginId; sceneId: SceneId) =
-  isSceneSpecific[pluginId] = isSceneSpecific.mgetOrPut(pluginId, @[]).concat(@[sceneId])
+proc onScene*(pluginId: PluginId; sceneIds: varargs[SceneId]) =
+  var ps = isSceneSpecific.mgetOrPut(pluginId, @[])
+  for s in sceneIds:
+    ps.add(s)
+  isSceneSpecific[pluginId] = ps
 
 func resources*(game: var Game): var Resources =
   game.resources
@@ -157,6 +160,7 @@ template start*(game: var Game) =
 
     initializeWindow(title = game.title)
     pushScene(game.startingScene)
+    
     generateStates()
     generatePluginStep[GameStep](load)
 

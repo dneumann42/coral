@@ -202,6 +202,8 @@ macro createView*(xs: untyped): auto =
 
 proc populate(view: View) =
   for e in entities:
+    if e.isDead:
+      continue
     var matches = true
 
     for t in view.key:
