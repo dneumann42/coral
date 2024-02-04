@@ -1,16 +1,26 @@
 import tools, hashes, rdstdin, tables, strformat, sets, strutils, sugar,
-    strutils, options, sequtils, algorithm
+    strutils, options, sequtils, algorithm, times
 
-import dynlib
+import dynlib, osproc, os
 import std/[macros, macrocache]
 
 type PluginId* = string
 
+proc extractFilenameWithoutExt*(path: string): string =
+  let subpath = extractFilename(path)
+  result = subpath.substr(0, searchExtPos(subpath) - 1)
+
 const functions = CacheTable"functions"
 const functionCount = CacheTable"functionCounts"
+const hotloadFunctionTypes = CacheTable"hotloadFunctionTypes"
+const hotloadFunctionNames = CacheSeq"hotloadFunctionNames"
+const hotloadFunctionSource = CacheTable"hotloadFunctionSource"
 const priority = CacheTable"priority"
 const states = CacheTable"states"
 const pluginNames = CacheSeq"pluginNames"
+
+# TODO: find the nim compiler in a cross platform way
+const NIM = "/home/dneumann/.nimble/bin/nim"
 
 var enabled: HashSet[PluginId]
 
@@ -37,11 +47,13 @@ macro plugin*(id, blk): auto =
       if idx > 0:
         newProc.add(inner)
       idx += 1
-    # newProc[4] = nnkPragma.newTree(ident("rtl"))
     let reg = nnkCall.newTree(ident("register"), newLit($id), name, ident(newIdStr))
     result.add(quote do: `newProc`; `reg`)
   let name = $id
   result.add(quote do: enable(`name`))
+
+macro setSourcePath*(id, src: untyped) =
+  hotloadFunctionSource[$id] = newLit($src)
 
 macro dynPlugin*(id, blk): auto =
   result = nnkStmtList.newTree()
@@ -66,9 +78,18 @@ macro dynPlugin*(id, blk): auto =
       if idx > 0:
         newProc.add(inner)
       idx += 1
-    newProc[4] = nnkPragma.newTree(ident("rtl"))
+
+    # function pointer type
+    let typeName = ident(newIdStr & "Proc")
+    let procT = nnkProcTy.newTree(newProc[3], nnkPragma.newTree(ident("nimcall")))
+    let procType = quote do:
+      type `typeName`* = `procT`
+
+    newProc[4] = nnkPragma.newTree(ident("exportc"), ident("dynlib"), ident("cdecl"))
     let reg = nnkCall.newTree(ident("register"), newLit($id), name, ident(newIdStr))
+    hotloadFunctionTypes[newIdStr] = procType
     result.add(quote do: `newProc`; `reg`)
+
   let name = $id
   result.add(quote do: enable(`name`))
 
@@ -94,7 +115,6 @@ macro descending*(ids: varargs[PluginId]): auto =
 
 macro register*[S: enum](id: PluginId, step: S, fn: typed) =
   let idStep = fmt"{id}|{step}"
-
   var first = false
 
   if not functionCount.hasKey(idStep):
@@ -104,6 +124,77 @@ macro register*[S: enum](id: PluginId, step: S, fn: typed) =
   var count = functionCount[idStep].intVal
   functionCount[idStep].intVal = count + 1
   functions[idStep & "|" & $count] = fn
+
+macro registerHotload*(id): auto =
+  if not hotloadFunctionTypes.hasKey($id):
+    return
+  hotloadFunctionNames.add(id)
+  let typ = hotloadFunctionTypes[$id]
+  let dllName = ident($id & "Dll")
+  let vars = nnkVarSection.newTree(
+    nnkIdentDefs.newTree(
+      dllName,
+      ident("LibHandle"),
+      newEmptyNode()),
+    nnkIdentDefs.newTree(
+      ident($id & "LastWrite"),
+      ident("Time"),
+      newEmptyNode()),
+    nnkIdentDefs.newTree(
+      nnkPostfix.newTree(
+        newIdentNode("*"),
+        ident($id)
+      ),
+      ident($id & "Proc"),
+      newEmptyNode()))
+  quote do:
+    `typ`
+    `vars` 
+
+macro generateHotloadDllLoader*(): auto =
+  var stmts = nnkStmtList.newTree()
+  for h in hotloadFunctionNames:
+    let source = $hotloadFunctionSource[$h]
+    let fileName = source.extractFilenameWithoutExt()
+    let base = source.parentDir()
+    let dllPath = newLit(base / "lib" & fileName & ".so")
+    
+    let dllName = ident($h & "Dll")
+    let nameStr = newLit($h)
+    let procType = ident($h & "Proc")
+    let id = ident($h)
+    let stmt = quote do:
+      if `dllName` != nil:
+        unloadLib(`dllName`)
+      `dllName`  = loadLib(`dllPath`)
+      if `dllName` != nil:
+        let fnAddr = `dllName`.symAddr(`nameStr`)
+        if fnAddr != nil:
+          `id` = cast[`procType`](fnAddr)
+    stmts.add(stmt)
+  quote do:
+    `stmts`
+
+macro generateHotloadUpdate*(): auto =
+  var stmts = nnkStmtList.newTree()
+  for h in hotloadFunctionNames:
+    let source = $hotloadFunctionSource[$h]
+    let lw = ident($h & "LastWrite")
+    let stmt = quote do:
+      block:
+        let writeTime = getFileInfo(`source`).lastWriteTime
+        if writeTime != `lw`:
+          `lw` = writeTime
+          let 
+            compile = startProcess(NIM, "", ["c", "--app:lib", `source`])
+            status = waitForExit(compile) 
+          compile.close()
+          if status == 0:
+            generateHotloadDllLoader()
+            echo "HOTLOADING: ", `source`
+    stmts.add(stmt)
+  quote do:
+    `stmts`
 
 macro generateStates*(id: PluginId): untyped =
   var stmts = nnkStmtList.newTree()

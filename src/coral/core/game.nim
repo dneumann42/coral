@@ -5,10 +5,10 @@ import ../platform
 import ../entities/ents
 
 import std/[logging, sets, sequtils, json, typetraits, options, macros, tables]
-import coral/core
+import coral/core, dynlib, times
 import coral/core/[profiles, saving]
 
-export options
+export options, dynlib, times
 
 type
   GameStep* = enum
@@ -174,6 +174,8 @@ template start*(game: var Game) =
         generatePluginStep[GameStep](onEvent, isActivePersistent)
 
       if shouldUpdate():
+        generateHotloadUpdate()
+
         generatePluginStep[GameStep](loadScene, shouldLoadScene)
         generatePluginStep[GameStep](update, isActive)
         generatePluginStep[GameStep](persistentUpdate, isActivePersistent)
