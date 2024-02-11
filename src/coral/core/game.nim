@@ -1,6 +1,6 @@
 import events, commands, patty, states, plugins, scenes, fusion/matching, print,
     algorithm, sugar, times
-import ../artist/[artist, atlas]
+import ../artist/artist
 import ../platform
 import ../entities/ents
 
@@ -154,7 +154,6 @@ template start*(game: var Game) =
     var
       cmds {.inject, used.} = Commands.init()
       artist {.inject, used.} = Artist.init()
-      atlas {.inject, used.} = Atlas.init()
       events {.inject, used.} = Events.init()
       resources {.inject, used.} = Resources.init()
 

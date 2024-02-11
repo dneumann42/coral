@@ -1,6 +1,7 @@
 import sdl2, tables, chroma, opengl, vmath, std/[logging, paths]
 import state, resources, renderer, keys, strformat
 import sdl2/ttf
+import sdl2/image
 
 template sdlFailIf(condition: typed, reason: string) =
   if condition:
@@ -58,6 +59,7 @@ proc initializeWindow*(title: string) =
     "SDL2 initialiation failed"
 
   sdlFailIf(ttfInit() == False32, "SDL2 TTF failed to initialize")
+  sdlFailIf(image.init() == 0, "SDL2 IMG failed to initialize")
 
   setWindow(createWindow(
     title = title,

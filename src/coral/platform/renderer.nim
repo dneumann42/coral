@@ -41,6 +41,8 @@ proc init*(T: type Camera, pos = vec2(0, 0)): T =
 proc size*(tex: TexturePtr): (int, int) =
   var w, h: cint
   tex.queryTexture(nil, nil, w.addr, h.addr)
+  if w == 0 and h == 0:
+    echo &"Texture query error: {getError()}"
   (w.int, h.int)
 
 proc setCamera*(camera: Camera) =
