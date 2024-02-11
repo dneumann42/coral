@@ -33,6 +33,7 @@ type
 # proc `=wasMoved`(x: var Artist) {.error.}
 
 var containerSize = vec2()
+var spriteAtlases = newSeq[SpriteAtlas]()
 
 proc tup*(v: Vec2): (float32, float32) = (v.x, v.y)
 proc tup*(v: Vec3): (float32, float32, float32) = (v.x, v.y, v.z)
@@ -76,6 +77,18 @@ proc init*(T: type Layer; w = screenWidth(); h = screenHeight(); depth = 0;
 proc init*(T: type Artist): T =
   T(camera: Camera.init(),
     layers: @[])
+
+proc loadAtlasConfig*(path: string): AtlasConfig =
+  var cfg {.global.} : Option[AtlasConfig] 
+  if cfg == none(AtlasConfig):
+    cfg = AtlasConfig.load(path).some()
+  result = cfg.get()
+
+proc loadSpriteAtlas*(cfg: AtlasConfig, name: string): SpriteAtlas =
+  var cache {.global.} : Table[string, SpriteAtlas]
+  if not cache.hasKey(name):
+    cache[name] = readFile(cfg.basePath / name & ".json").parseJson().to(SpriteAtlas)
+  result = cache[name]
 
 template withClip*(x, y, w, h: SomeNumber, blk: untyped) =
   application.withClip(x, y, w, h, blk)

@@ -1,6 +1,6 @@
 import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
     strutils, sets, sdl2, sdl2/image, print, jsony, streams, yaml
-import std/[paths, re]
+import std/[paths, re, logging]
 import std/md5
 import ../platform/resources
 import ../platform/renderer
@@ -17,7 +17,7 @@ const
 
 type
   AtlasConfig* = object
-    basePath: string
+    basePath*: string
     fonts: Table[string, string]
     images: Table[string, string]
     atlases: Table[string, string]
@@ -27,7 +27,7 @@ type
 
   SpriteAtlas* = object
     imageId: string
-    sprites: Table[string, ImageSprite]
+    sprites*: Table[string, ImageSprite]
 
   Atlas* = object
     spriteAtlases*: seq[SpriteAtlas]
@@ -42,6 +42,7 @@ proc load*(T: type AtlasConfig, path: string): T =
   var fs = newFileStream(path)
   fs.load(result) 
   fs.close()
+  info("Loaded Atlas Config: " & path)
 
 proc init*(T: type ImageSprite, x, y, w, h: int): T =
   T(x: x, y: y, w: w, h: h)
@@ -77,9 +78,7 @@ proc generateSpriteAtlases*(config: AtlasConfig): seq[SpriteAtlas] =
     # Load all textures in directory
     for path in walkFiles(path / "*.png"):
       let img: TexturePtr = getRenderer().loadTexture(path)
-      echo path
       let (w, h) = img.size()
-      echo w, " ", h
       var spriteId = &"{image}-{path.getId()}"
       textures[spriteId] = img
       atlas.sprites[spriteId] = ImageSprite.init(0, 0, w, h)
