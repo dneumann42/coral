@@ -1,4 +1,4 @@
-import json, hashes
+import json, hashes, tables
 
 type
   EntId* = distinct int

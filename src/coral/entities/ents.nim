@@ -11,6 +11,11 @@ var dead = initHashSet[EntId]()
 var indexes = newSeq[Table[TypeId, int]]()
 var viewCache = initTable[ViewKey, View]()
 
+proc `%`*(ents: HashSet[EntId]): JsonNode =
+  result = %* []
+  for e in ents:
+    result.add( % (e.int))
+
 const bufferCache = CacheSeq"bufferCache"
 const bufferTypeCache = CacheSeq"bufferTypeCache"
 

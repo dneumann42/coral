@@ -3,7 +3,7 @@ import std/logging
 
 import ../platform/application
 import ../platform/renderer
-import atlas
+import atlas, paint
 
 type
   Align* = enum
@@ -75,8 +75,10 @@ proc init*(T: type Layer; w = screenWidth(); h = screenHeight(); depth = 0;
     target: Canvas.init(screenWidth(), screenHeight()))
 
 proc init*(T: type Artist): T =
-  T(camera: Camera.init(),
+  result = T(camera: Camera.init(),
     layers: @[])
+
+  paint.init()
 
 proc loadAtlasConfig*(path: string): AtlasConfig =
   var cfg {.global.} : Option[AtlasConfig] 

@@ -1,0 +1,7 @@
+basePath: res/
+fonts: {text: fonts/monogram.ttf}
+images:
+  "adult-male-template": "textures/characters/adult-male-template.png"
+  tadwyrd: textures/characters/tadwyrd.png
+  caravan: textures/characters/caravan.png
+atlases: {environment: textures/environment/}

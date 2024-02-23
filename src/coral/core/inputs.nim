@@ -55,5 +55,8 @@ proc released*(mb: MouseButton): bool =
 proc input*(id: string): Binding =
   actions[id]
 
+proc update*(mb: MouseButton) =
+  application.update(mb)
+
 proc mousePosition*(): Vec2 =
   application.mousePosition()

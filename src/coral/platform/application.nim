@@ -48,6 +48,8 @@ proc fps*(): float =
     return 0.0
   1.0 / clock.dt
 
+proc getGLContext*(): GLContextPtr = context
+
 proc clockTimer*(): float =
   clock.timer
 
@@ -75,6 +77,14 @@ proc initializeWindow*(title: string) =
 
   context = getWindow().glCreateContext()
   discard glSetSwapInterval(-1)
+  loadExtensions()
+
+  glClearColor(0.0, 0.0, 0.0, 1.0)                  # Set background color to black and opaque
+  glClearDepth(1.0)                                 # Set background depth to farthest
+  glEnable(GL_DEPTH_TEST)                           # Enable depth testing for z-culling
+  glDepthFunc(GL_LEQUAL)                            # Set the type of depth-test
+  glShadeModel(GL_SMOOTH)                           # Enable smooth shading
+  glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST) # Nice perspective corrections
 
   discard setHint("SDL_HINT_RENDER_SCALE_QUALITY", "2")
   discard setHint("SDL_HINT_RENDER_LINE_METHOD", "3")
@@ -144,6 +154,10 @@ proc isReleased*(mouse: MouseButton): bool =
     not mouseInputs[mouse] and lastMouseInputs[mouse]
   else:
     false
+
+proc update*(mouse: MouseButton) =
+  lastMouseInputs[mouse] = false
+  mouseInputs[mouse] = false
 
 proc mousePosition*(): Vec2 =
   var ix, iy: cint
