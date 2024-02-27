@@ -18,7 +18,7 @@ type
 
 var activeCamera: Option[Camera]
 
-proc toSDLRect*(r: Rectangle): Rect =
+proc toSDLRect*(r: Rectangle): sdl2.Rect =
   rect(floor(r.x).cint, floor(r.y).cint, r.w.cint, r.h.cint)
 
 proc windowSize*(): Vec2 =
@@ -85,7 +85,7 @@ proc offsetZoom*(pos: Vec2): (Vec2, float) =
   else:
     (pos, 1.0)
 
-proc getTransformedRect(x, y, w, h: SomeNumber): Rect =
+proc getTransformedRect(x, y, w, h: SomeNumber): sdl2.Rect =
   var (pos, zoom) = offsetZoom(vec2(x.float, y.float))
   rect(
     cint(pos.x),
