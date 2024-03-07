@@ -71,6 +71,7 @@ macro registerComponents*(ts: untyped) =
   quote do:
     `buffers`
     generateDeleters(`ts`)
+    generateEnts()
 
 template del*(entId: EntId) =
   dead.incl(entId)

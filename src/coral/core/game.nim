@@ -99,8 +99,6 @@ proc isActiveAndReady(id: PluginId): bool =
   result = id.isActivePersistent() and not id.shouldLoad(keep = true)
 
 template start*(game: var Game) =
-  generateEnts()
-
   proc loadGameProfile(profileId: string; cmds: ptr Commands;
       js: var JsonNode) =
     var profile = Profile(name: profileId, gameName: game.name)
