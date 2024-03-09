@@ -268,9 +268,10 @@ proc text*(
   tex: string,
   fontId: string,
   x, y: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)
+  color = color(1.0, 1.0, 1.0, 1.0),
+  breakX = -1
 ) =
-  ren.text(tex, res.get(Font, fontId), x, y, color)
+  ren.text(tex, res.get(Font, fontId), fontId, x, y, color, breakX = breakX)
 
 proc line*(
   startX, startY, endX, endY: SomeNumber,
@@ -297,6 +298,12 @@ proc circle*(
   radius: SomeNumber,
   color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.circle(x, y, radius, color)
+
+proc linecircle*(
+  x, y: SomeNumber,
+  radius: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  ren.linecircle(x, y, radius, color)
 
 proc texture*(
   texId: string,

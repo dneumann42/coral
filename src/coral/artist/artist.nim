@@ -121,6 +121,12 @@ proc drawCircle*(x, y: SomeNumber; r = 32.0; color = color(1.0, 1.0, 1.0, 1.0)) 
 proc drawCircle*(pos: Vec2; r = 32.0; color = color(1.0, 1.0, 1.0, 1.0)) =
   application.circle(pos.x, pos.y, r, color)
 
+proc drawLinecircle*(x, y: SomeNumber; r = 32.0; color = color(1.0, 1.0, 1.0, 1.0)) =
+  application.linecircle(x, y, r, color)
+
+proc drawLinecircle*(pos: Vec2; r = 32.0; color = color(1.0, 1.0, 1.0, 1.0)) =
+  application.linecircle(pos.x, pos.y, r, color)
+
 proc drawRect*(x, y: SomeNumber; w = 64.0; h = 64.0; origin = vec2();
     rotation = 0.0; color = color(1.0, 1.0, 1.0, 1.0)) =
   application.rect(x.float32, y.float32, w.float32, h.float32, origin, rotation, color)
@@ -164,9 +170,19 @@ proc drawText*(
   tex: string,
   fontId: string, # TODO: font id should be distinct from string
   x, y: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)
+  color = color(1.0, 1.0, 1.0, 1.0),
+  breakX = -1
 ) =
-  application.text(tex, fontId, x, y, color)
+  application.text(tex, fontId, x, y, color, breakX = breakX)
+
+proc drawText*(
+  tex: string,
+  fontId: string, # TODO: font id should be distinct from string
+  pos: Vec2,
+  color = color(1.0, 1.0, 1.0, 1.0),
+  breakX = -1
+) =
+  application.text(tex, fontId, pos.x, pos.y, color, breakX = breakX)
 
 proc getOrCreateLayer*(artist: var Artist; depth: int; camera = false): Layer =
   for layer in artist.layers:

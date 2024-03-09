@@ -1,6 +1,6 @@
 import sdl2, vmath, chroma, tables, cascade
 import sdl2/[gfx, image, ttf]
-import std/[logging, md5]
+import std/[logging, md5, strutils, sequtils]
 import fusion/matching
 import resources, state, options, strformat
 
@@ -137,47 +137,82 @@ proc circle*(
     int16(pos.x), int16(pos.y), int16(radius * zoom),
     c.r, c.g, c.b, c.a)
 
+proc linecircle*(
+  ren: Renderer,
+  x, y: SomeNumber,
+  radius: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0)) =
+  let c = color.rgba
+  let (pos, zoom) = offsetZoom(vec2(x.float, y.float))
+  getRenderer().circleRGBA(
+    int16(pos.x), int16(pos.y), int16(radius * zoom),
+    c.r, c.g, c.b, c.a)
+
 proc measureString*(font: Font, text: string): Vec2 =
   var w, h: cint
   discard sizeText(font.fontPtr, text.cstring, w.addr, h.addr)
   result = vec2(w.float, h.float)
 
-proc text*(
-  ren: var Renderer,
-  tex: string,
-  font: Font,
-  x, y: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)
-) =
+proc renderTextLine*(ren: var Renderer, x, y: float, font: Font, text, id: string, c: chroma.Color) =
+  let c = c.rgba
+  var color = (r: c.r, g: c.g, b: c.b, a: c.a)
+
   var texture = block:
-    let id = tex
-    let c = color.rgba
     if ren.texts.hasKey(id):
       ren.texts[id]
     else:
       var surface = renderTextSolid(
         font.fontPtr,
-        tex.cstring,
-        (r: c.r, g: c.g, b: c.b, a: c.a))
-      var tex = getRenderer().createTextureFromSurface(surface)
+        text.cstring,
+        color)
+      var texture = getRenderer().createTextureFromSurface(surface)
       freeSurface(surface)
-      ren.texts[id] = tex
-      tex
+      ren.texts[id] = texture
+      texture
 
   var (w, h) = texture.size()
-  let (pos, _) = offsetZoom(vec2(x.float, y.float))
-
+  let (pos, _) = offsetZoom(vec2(x, y))
   var d = (floor(pos.x.float), floor(pos.y.float), w.float, h.float).toSDLRect()
   var p = point(0, 0)
+  getRenderer().copyEx(texture, nil, d.addr, 0.0, p.addr, 0)
 
-  getRenderer().copyEx(
-    texture,
-    nil,
-    d.addr,
-    0.0,
-    p.addr,
-    0
-  )
+proc renderTextWrapped*(ren: var Renderer, x, y: float, font: Font, text, id: string, color: chroma.Color, breakX: int) =
+  let tokens = toSeq(tokenize(text))
+  var cursorX = 0.0
+  var cursorY = 0.0
+  for (lexeme, isws) in tokens:
+    let id = id & "|" & lexeme
+    let size = font.measureString(lexeme)
+    if cursorX + size.x > breakX.float:
+      cursorX = 0.0
+      cursorY += size.y
+    ren.renderTextLine(x + cursorX, y + cursorY, font, lexeme, id, color)
+    cursorX += size.x
+
+proc renderText*(ren: var Renderer, x, y: float, font: Font, fontId, text: string, color: chroma.Color, breakX: int) =
+  let id = fontId & "|" & text
+  if ren.texts.hasKey(id):
+    let texture = ren.texts[id]
+    var (w, h) = texture.size()
+    let (pos, _) = offsetZoom(vec2(x, y))
+    var d = (floor(pos.x.float), floor(pos.y.float), w.float, h.float).toSDLRect()
+    var p = point(0, 0)
+    getRenderer().copyEx(texture, nil, d.addr, 0.0, p.addr, 0)
+  elif breakX == -1:
+    ren.renderTextLine(x, y, font, text, id, color)
+  else:
+    ren.renderTextWrapped(x, y, font, text, id, color, breakX)
+
+proc text*(
+  ren: var Renderer,
+  text: string,
+  font: Font,
+  fontId: string,
+  x, y: SomeNumber,
+  color = color(1.0, 1.0, 1.0, 1.0),
+  breakX = -1
+) =
+  ren.renderText(x.float, y.float, font, fontId, text, color, breakX)
 
 proc texture*(
   ren: Renderer,
