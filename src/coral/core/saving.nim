@@ -1,7 +1,8 @@
 ## For now the only supported format is Json, I would like to extend that
 ## to xml, yaml and s-expressions. Potentially toml and maybe protobuf
 
-import std/[json, macros]
+import std/[json, macros, sequtils]
+import sets
 
 export json
 
@@ -47,3 +48,12 @@ macro implLoadable*(t: typedesc): untyped =
 template implSaveLoad*(t: typedesc, version: int) =
   implSavable(t, version)
   implLoadable(t)
+
+# Json for built in types
+
+proc `%`* (hs: HashSet[string]): JsonNode =
+  result = %* hs.toSeq()
+
+proc initFromJson*(src: var HashSet[string], node: JsonNode, path: var string) =
+  for itm in node:
+    src.incl(itm.getStr())

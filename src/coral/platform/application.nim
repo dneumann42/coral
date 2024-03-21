@@ -198,10 +198,13 @@ proc updateWindow*(): bool =
 
   var TPS = getPerformanceFrequency()
 
-  clock.ticks = getPerformanceCounter()
-  clock.dt = (clock.ticks - prev).float64 / TPS.float64
-  clock.timer += clock.dt
-  prev = clock.ticks
+  if prev == 0:
+    prev = getPerformanceCounter()
+  else:
+    clock.ticks = getPerformanceCounter()
+    clock.dt = (clock.ticks - prev).float64 / TPS.float64
+    clock.timer += clock.dt
+    prev = clock.ticks
 
   secondsAccum += clock.dt
 

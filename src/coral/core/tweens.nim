@@ -45,10 +45,9 @@ type
     outBounce
     inOutBounce
 
-
   Tween*[T] = object
     time: T
-    init, value, target: T
+    init, value, target*: T
     duration: float
     easing: EasingKind
 
@@ -58,6 +57,7 @@ func value*[T](tween: Tween[T]): T = tween.value
 
 proc newTween*[T](init, target, duration: T, easing: EasingKind): Tween[T] =
   Tween[T](
+    time: 0.0,
     init: init,
     value: init,
     target: target,
