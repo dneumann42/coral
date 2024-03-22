@@ -98,6 +98,9 @@ proc shouldUnloadScene(id: PluginId): bool =
 proc isActiveAndReady(id: PluginId): bool =
   result = id.isActivePersistent() and not id.shouldLoad(keep = true)
 
+proc isActiveScene*(id: PluginId): bool =
+  result = id.isActive()
+
 template start*(game: var Game) =
   proc loadGameProfile(profileId: string; cmds: ptr Commands;
       js: var JsonNode) =
