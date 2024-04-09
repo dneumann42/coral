@@ -48,7 +48,8 @@ proc fps*(): float =
     return 0.0
   1.0 / clock.dt
 
-proc getGLContext*(): GLContextPtr = context
+proc getGLContext*(): GLContextPtr =
+  context
 
 proc clockTimer*(): float =
   clock.timer
@@ -63,14 +64,16 @@ proc initializeWindow*(title: string) =
   sdlFailIf(ttfInit() == False32, "SDL2 TTF failed to initialize")
   sdlFailIf(image.init() == 0, "SDL2 IMG failed to initialize")
 
-  setWindow(createWindow(
-    title = title,
-    x = SDL_WINDOWPOS_CENTERED,
-    y = SDL_WINDOWPOS_CENTERED,
-    w = 1280,
-    h = 720,
-    flags = SDL_WINDOW_SHOWN
-  ))
+  setWindow(
+    createWindow(
+      title = title,
+      x = SDL_WINDOWPOS_CENTERED,
+      y = SDL_WINDOWPOS_CENTERED,
+      w = 1280,
+      h = 720,
+      flags = SDL_WINDOW_SHOWN,
+    )
+  )
 
   sdlFailIf(getWindow().isNil):
     "Window could not be created"
@@ -79,22 +82,24 @@ proc initializeWindow*(title: string) =
   discard glSetSwapInterval(-1)
   loadExtensions()
 
-  glClearColor(0.0, 0.0, 0.0, 1.0)                  # Set background color to black and opaque
-  glClearDepth(1.0)                                 # Set background depth to farthest
-  glEnable(GL_DEPTH_TEST)                           # Enable depth testing for z-culling
-  glDepthFunc(GL_LEQUAL)                            # Set the type of depth-test
-  glShadeModel(GL_SMOOTH)                           # Enable smooth shading
+  glClearColor(0.0, 0.0, 0.0, 1.0) # Set background color to black and opaque
+  glClearDepth(1.0) # Set background depth to farthest
+  glEnable(GL_DEPTH_TEST) # Enable depth testing for z-culling
+  glDepthFunc(GL_LEQUAL) # Set the type of depth-test
+  glShadeModel(GL_SMOOTH) # Enable smooth shading
   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST) # Nice perspective corrections
 
   discard setHint("SDL_HINT_RENDER_SCALE_QUALITY", "2")
   discard setHint("SDL_HINT_RENDER_LINE_METHOD", "3")
   discard glSetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4)
 
-  setRenderer(createRenderer(
-    window = getWindow(),
-    index = 0,
-    flags = Renderer_Accelerated or Renderer_PresentVsync or Renderer_TargetTexture
-  ))
+  setRenderer(
+    createRenderer(
+      window = getWindow(),
+      index = 0,
+      flags = Renderer_Accelerated or Renderer_PresentVsync or Renderer_TargetTexture,
+    )
+  )
 
   sdlFailIf(getRenderer().isNil):
     &"Renderer could not be created: {getError()}"
@@ -103,7 +108,8 @@ proc initializeWindow*(title: string) =
   ren = Renderer.init()
   res = Resources.init()
 
-proc windowSize*(): Vec2 = renderer.windowSize()
+proc windowSize*(): Vec2 =
+  renderer.windowSize()
 
 proc getSaveDirectoryPath*(organization, app: string): Path =
   var path = $getPrefPath(organization.cstring, app.cstring)
@@ -144,8 +150,8 @@ proc clear*(mouse: MouseButton) =
 
 proc isPressed*(mouse: MouseButton): bool =
   if mouseInputs.hasKey(mouse):
-    mouseInputs[mouse] and (not lastMouseInputs.hasKey(mouse) or
-        not lastMouseInputs[mouse])
+    mouseInputs[mouse] and
+      (not lastMouseInputs.hasKey(mouse) or not lastMouseInputs[mouse])
   else:
     false
 
@@ -170,10 +176,10 @@ proc intersects*(a, b: Vec2, radius = 10.0): bool =
 proc intersects*(a, b: tuple[x, y, w, h: SomeNumber]): bool =
   a.x + a.w > b.x and a.x < b.x + b.w and a.y + a.h > b.y and a.y < b.y + b.h
 
-proc intersects*(p: Vec2, a: tuple[x, y, w, h: float|float32]): bool =
+proc intersects*(p: Vec2, a: tuple[x, y, w, h: float | float32]): bool =
   p.x > a.x and p.x < a.x + a.w and p.y > a.y and p.y < a.y + a.h
 
-proc intersects*(p: Vec2, x, y, w, h: float|float32): bool =
+proc intersects*(p: Vec2, x, y, w, h: float | float32): bool =
   p.x > x and p.x < x + w and p.y > y and p.y < y + h
 
 proc closeWindow*() =
@@ -229,30 +235,42 @@ proc shouldUpdate*(): bool =
     secondsAccum -= 1.0 / targetFPS.float
     return true
 
-proc beginDrawing() = ren.beginDrawing()
-proc endDrawing() = ren.endDrawing()
+proc beginDrawing() =
+  ren.beginDrawing()
 
-proc beginClip*(x, y, w, h: int) = ren.beginClip(x, y, w, h)
-proc endClip*() = ren.endClip()
+proc endDrawing() =
+  ren.endDrawing()
+
+proc beginClip*(x, y, w, h: int) =
+  ren.beginClip(x, y, w, h)
+
+proc endClip*() =
+  ren.endClip()
 
 template withClip*(x, y, w, h: SomeNumber, blk: untyped) =
   beginClip(x.int, y.int, w.int, h.int)
-  blk 
+  blk
   endClip()
 
 proc startCanvas*(canvas: Canvas) =
   getRenderer().setRenderTarget(canvas)
+
+proc clearCanvas*(canvas: Canvas) =
   ren.pushColor(color(0.0, 0.0, 0.0, 0.0)):
     getRenderer().clear()
 
 proc endCanvas*() =
   getRenderer().setRenderTarget(nil)
 
-proc loadImage*(path, id: string) = res.load(Texture, path, id)
-proc loadFont*(path, id: string, size: int) = res.load(Font, path, id, size)
+proc loadImage*(path, id: string) =
+  res.load(Texture, path, id)
+
+proc loadFont*(path, id: string, size: int) =
+  res.load(Font, path, id, size)
 
 proc loadImage*(path: string) =
   res.load(Texture, path, path.extractFilenameWithoutExt())
+
 proc loadFont*(path: string, size: int) =
   res.load(Font, path, path.extractFilenameWithoutExt(), size)
 
@@ -268,62 +286,59 @@ proc clear*(color = color(0.0, 0.0, 0.0, 0.0)) =
   ren.clear(color = color)
 
 proc text*(
-  tex: string,
-  fontId: string,
-  x, y: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0),
-  breakX = -1
+    tex: string,
+    fontId: string,
+    x, y: SomeNumber,
+    color = color(1.0, 1.0, 1.0, 1.0),
+    breakX = -1,
 ) =
   ren.text(tex, res.get(Font, fontId), fontId, x, y, color, breakX = breakX)
 
-proc line*(
-  startX, startY, endX, endY: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)
-) =
+proc line*(startX, startY, endX, endY: SomeNumber, color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.line(startX, startY, endX, endY, color)
 
 proc rect*(
-  x, y, w, h: SomeNumber,
-  origin = vec2(),
-  rotation = 0.0,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    x, y, w, h: SomeNumber,
+    origin = vec2(),
+    rotation = 0.0,
+    color = color(1.0, 1.0, 1.0, 1.0),
+) =
   ren.rect(x, y, w, h, origin, rotation, color)
 
 proc linerect*(
-  x, y, w, h: SomeNumber,
-  origin = vec2(),
-  rotation = 0.0,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    x, y, w, h: SomeNumber,
+    origin = vec2(),
+    rotation = 0.0,
+    color = color(1.0, 1.0, 1.0, 1.0),
+) =
   ren.linerect(x, y, w, h, origin, rotation, color)
 
-proc circle*(
-  x, y: SomeNumber,
-  radius: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+proc circle*(x, y: SomeNumber, radius: SomeNumber, color = color(1.0, 1.0, 1.0, 1.0)) =
   ren.circle(x, y, radius, color)
 
 proc linecircle*(
-  x, y: SomeNumber,
-  radius: SomeNumber,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    x, y: SomeNumber, radius: SomeNumber, color = color(1.0, 1.0, 1.0, 1.0)
+) =
   ren.linecircle(x, y, radius, color)
 
 proc texture*(
-  texId: string,
-  src: Rectangle,
-  dst: Rectangle,
-  origin = vec2(),
-  rotation = 0.0,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    texId: string,
+    src: Rectangle,
+    dst: Rectangle,
+    origin = vec2(),
+    rotation = 0.0,
+    color = color(1.0, 1.0, 1.0, 1.0),
+) =
   ren.texture(res.get(Texture, texId), src, dst, origin, rotation, color)
 
 proc texture*(
-  texId: string,
-  pos: Vec2,
-  scale = 1.0,
-  origin = vec2(),
-  rotation = 0.0,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    texId: string,
+    pos: Vec2,
+    scale = 1.0,
+    origin = vec2(),
+    rotation = 0.0,
+    color = color(1.0, 1.0, 1.0, 1.0),
+) =
   var tex = res.get(Texture, texId)
   var (w, h) = tex.size()
   ren.texture(
@@ -332,16 +347,17 @@ proc texture*(
     (x: pos.x.float, y: pos.y.float, w: w * scale, h: h * scale),
     origin,
     rotation,
-    color
+    color,
   )
 
 proc texture*(
-  tex: TexturePtr,
-  src: Rectangle,
-  dst: Rectangle,
-  origin = vec2(),
-  rotation = 0.0,
-  color = color(1.0, 1.0, 1.0, 1.0)) =
+    tex: TexturePtr,
+    src: Rectangle,
+    dst: Rectangle,
+    origin = vec2(),
+    rotation = 0.0,
+    color = color(1.0, 1.0, 1.0, 1.0),
+) =
   ren.texture(Texture.init(tex), src, dst, origin, rotation, color)
 
 template withDrawing*(blk: untyped) =
