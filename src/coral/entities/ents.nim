@@ -1,4 +1,4 @@
-import std/[macros, sequtils, strutils, tables, macrocache, enumerate, sugar, logging]
+import std/[macros, sequtils, strutils, tables, macrocache, enumerate, logging]
 
 import compBuffs, views, types
 

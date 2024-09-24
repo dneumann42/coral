@@ -1,4 +1,4 @@
-import hashes, tables, macros,json
+import hashes, tables, macros
 
 type
   TypeId* = Hash

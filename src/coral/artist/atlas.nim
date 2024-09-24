@@ -1,7 +1,6 @@
-import os, sets, tables, algorithm, sugar, json, sequtils, strformat, options,
-    strutils, sets, sdl2, sdl2/image, print, jsony, streams, yaml
-import std/[paths, re, logging]
-import std/md5
+import os, tables, algorithm, sugar, json, sequtils, strformat
+import options, sdl2, sdl2/image, streams, yaml
+import std/logging
 import ../platform/resources
 import ../platform/renderer
 import ../platform/application

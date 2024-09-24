@@ -1,4 +1,4 @@
-import std/[typetraits, sequtils]
+import std/typetraits
 
 import ../core/saving
 

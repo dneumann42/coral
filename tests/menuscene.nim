@@ -1,6 +1,5 @@
 import coral/[core, platform, artist]
-import random, math
-import chroma
+import math, chroma
 
 plugin MenuScene:
   proc load() = registerScene("MenuScene")

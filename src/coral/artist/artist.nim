@@ -1,9 +1,9 @@
-import algorithm, sequtils, sugar, vmath, chroma, os, jsony, json, tables, print
+import algorithm, sugar, vmath, chroma, os, tables, json
 import std/logging
 
 import ../platform/application
 import ../platform/renderer
-import atlas, paint, glrenderer
+import atlas
 
 type
   Align* = enum
@@ -78,8 +78,6 @@ proc init*(
 
 proc init*(T: type Artist): T =
   result = T(camera: Camera.init(), layers: @[])
-
-  paint.init()
 
 proc loadAtlasConfig*(path: string): AtlasConfig =
   var cfg {.global.}: Option[AtlasConfig]

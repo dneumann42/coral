@@ -1,11 +1,11 @@
-import events, commands, patty, states, plugins, scenes, fusion/matching, print,
+import events, commands, patty, states, plugins, scenes, fusion/matching,
     algorithm, sugar, times
 import ../artist/artist
 import ../platform
 import ../entities/ents
 
 import std/[logging, sets, sequtils, json, typetraits, options, macros, tables]
-import coral/core, dynlib, times
+import dynlib, times
 import coral/core/[profiles, saving]
 
 export options, dynlib, times

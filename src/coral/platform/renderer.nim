@@ -1,6 +1,6 @@
-import sdl2, vmath, chroma, tables, cascade
+import sdl2, vmath, chroma, tables
 import sdl2/[gfx, image, ttf]
-import std/[logging, md5, strutils, sequtils]
+import std/[logging, strutils, sequtils]
 import fusion/matching
 import resources, state, options, strformat
 

@@ -13,7 +13,6 @@ var fileLog = newFileLogger("errors.log", levelThreshold = lvlError)
 addHandler(consoleLog)
 addHandler(fileLog)
 
-var capFps = true
 var targetFPS: uint32 = 60
 var previousTicks: uint64 = 0
 var seconds = 0.0
@@ -71,7 +70,7 @@ proc initializeWindow*(title: string) =
       y = SDL_WINDOWPOS_CENTERED,
       w = 1280,
       h = 720,
-      flags = SDL_WINDOW_SHOWN,
+      flags = SDL_WINDOW_SHOWN or SDL_WINDOW_RESIZABLE,
     )
   )
 
