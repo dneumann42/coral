@@ -1,4 +1,4 @@
-import events, commands, patty, states, plugins, scenes, fusion/matching,
+import events, commands, states, plugins, scenes, fusion/matching,
     algorithm, sugar, times
 import ../artist/artist
 import ../platform
@@ -120,36 +120,36 @@ template start*(game: var Game) =
       saveProfile(profile, [(commands, Commands), (Ents(), Ents)], pluginStates)
 
     for cmd in commandQueue:
-      match cmd:
-        PushScene(pushId):
-          pushScene(pushId)
-        ChangeScene(changeId):
-          discard changeScene(changeId)
-        BackScene:
+      case cmd.kind:
+        of pushScene:
+          pushScene(cmd.pushId)
+        of changeScene:
+          discard changeScene(cmd.changeId)
+        of backScene:
           discard backScene()
-        Exit:
+        of exit:
           game.shouldExit = true
-        NewProfile(newId):
-          let profile = Profile(name: newId, gameName: game.name)
+        of newProfile:
+          let profile = Profile(name: cmd.newId, gameName: game.name)
           profile.saveGame()
           game.profile = some(profile)
-          info("Created new profile: " & newId)
-        SaveProfile:
+          info("Created new profile: " & cmd.newId)
+        of saveProfile:
           if Some(@profile) ?= game.profile:
             profile.saveGame()
             info("Saved profile: " & profile.name)
-        LoadProfile(loadId):
+        of loadProfile:
           var js = newJObject()
-          loadGameProfile(loadId, commands.addr, js)
+          loadGameProfile(cmd.loadId, commands.addr, js)
           generateStateLoads(js)
-          info("Loaded profile: " & loadId)
-        PauseGame:
+          info("Loaded profile: " & cmd.loadId)
+        of pauseGame:
           isPaused = true
-        ResumeGame:
+        of resumeGame:
           isPaused = false
-        DeleteProfile(deleteId):
-          game.deleteProfile(deleteId)
-          info("Deleted profile: " & deleteId)
+        of CommandKind.deleteProfile:
+          game.deleteProfile(cmd.deleteId)
+          info("Deleted profile: " & cmd.deleteId)
 
   block:
     var

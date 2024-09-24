@@ -1,18 +1,34 @@
-import patty, json, typetraits
+import json, typetraits
 
 import saving
 
-variantp Command:
-  PushScene(pushId: string)
-  ChangeScene(changeId: string)
-  BackScene
-  SaveProfile
-  NewProfile(newId: string)
-  LoadProfile(loadId: string)
-  DeleteProfile(deleteId: string)
-  PauseGame
-  ResumeGame
-  Exit
+type
+  CommandKind* = enum
+    pushScene
+    changeScene
+    backScene
+    saveProfile
+    newProfile
+    loadProfile
+    deleteProfile
+    pauseGame
+    resumeGame
+    exit
+
+  Command = object
+    case kind*: CommandKind
+      of pushScene:
+        pushId*: string
+      of changeScene:
+        changeId*: string
+      of newProfile:
+        newId*: string
+      of loadProfile:
+        loadId*: string
+      of deleteProfile:
+        deleteId*: string
+      else:
+        discard
 
 type
   Commands* = object
@@ -21,27 +37,27 @@ type
 proc version*(commands: type Commands): int = 1
 
 proc `%`*(c: Command): JsonNode =
-  match c:
-    PushScene(pushId):
-      result = %* {"kind": "PushScene", "pushId": pushId}
-    ChangeScene(changeId):
-      result = %* {"kind": "ChangeScene", "changeId": changeId}
-    BackScene:
-      result = %* {"kind": "BackScene"}
-    SaveProfile:
-      result = %* {"kind": "SaveProfile"}
-    NewProfile(newId):
-      result = %* {"kind": "NewProfile", "newId": newId}
-    LoadProfile(loadId):
-      result = %* {"kind": "LoadProfile", "loadId": loadId}
-    DeleteProfile(deleteId):
-      result = %* {"kind": "DeleteProfile", "deleteId": deleteId}
-    PauseGame:
-      result = %* {"kind": "PauseGame"}
-    ResumeGame:
-      result = %* {"kind": "ResumeGame"}
-    Exit:
-      result = %* {"kind": "Exit"}
+  case c.kind:
+    of pushScene:
+      %* {"kind": "PushScene", "pushId": c.pushId}
+    of changeScene:
+      %* {"kind": "ChangeScene", "changeId": c.changeId}
+    of backScene:
+      %* {"kind": "BackScene"}
+    of saveProfile:
+      %* {"kind": "SaveProfile"}
+    of newProfile:
+      %* {"kind": "NewProfile", "newId": c.newId}
+    of loadProfile:
+      %* {"kind": "LoadProfile", "loadId": c.loadId}
+    of deleteProfile:
+      %* {"kind": "DeleteProfile", "deleteId": c.deleteId}
+    of pauseGame:
+      %* {"kind": "PauseGame"}
+    of resumeGame:
+      %* {"kind": "ResumeGame"}
+    of exit:
+      %* {"kind": "Exit"}
 
 proc `%`*(cs: seq[Command]): JsonNode =
   result = %* []
@@ -68,34 +84,34 @@ proc clear*(self: var Commands) =
   self.stack.setLen(0)
 
 proc pushScene*(self: var Commands, id: string) =
-  self.stack.add(PushScene(id))
+  self.stack.add(Command(kind: pushScene, pushId: id))
 
 proc pause*(self: var Commands) =
-  self.stack.add(PauseGame())
+  self.stack.add(Command(kind: pauseGame))
 
 proc resume*(self: var Commands) =
-  self.stack.add(ResumeGame())
+  self.stack.add(Command(kind: resumeGame))
 
 proc backScene*(self: var Commands) =
-  self.stack.add(BackScene())
+  self.stack.add(Command(kind: backScene))
 
 proc changeScene*(self: var Commands, id: string) =
-  self.stack.add(ChangeScene(id))
+  self.stack.add(Command(kind: changeScene, changeId: id))
 
 proc newProfile*(self: var Commands, id: string) =
-  self.stack.add(NewProfile(id))
+  self.stack.add(Command(kind: newProfile, newId: id))
 
 proc saveProfile*(self: var Commands) =
-  self.stack.add SaveProfile()
+  self.stack.add(Command(kind: saveProfile))
 
 proc loadProfile*(self: var Commands, id: string) =
-  self.stack.add LoadProfile(id)
+  self.stack.add(Command(kind: loadProfile, loadId: id))
 
 proc deleteProfile*(self: var Commands, id: string) =
-  self.stack.add DeleteProfile(id)
+  self.stack.add(Command(kind: deleteProfile, deleteId: id))
 
 proc exit*(self: var Commands): var Commands {.discardable.} =
-  self.stack.add Exit()
+  self.stack.add(Command(kind: exit))
   self
 
 static:

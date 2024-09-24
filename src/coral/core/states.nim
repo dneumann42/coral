@@ -1,4 +1,4 @@
-import json, jsony, tables, options, typetraits, fusion/matching, macros,
+import json, tables, options, typetraits, fusion/matching, macros,
     macrocache, std/enumerate
 import saving, strutils
 
