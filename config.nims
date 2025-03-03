@@ -1,0 +1,2 @@
+--d:useMalloc
+--mm:atomicArc

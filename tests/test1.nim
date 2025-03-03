@@ -1,5 +1,12 @@
-import unittest
-
 import coral
-test "can add":
-  check add(5, 5) == 10
+
+plugin Demo:
+  proc load() =
+    echo "LOADING DEMO"
+
+when isMainModule:
+  var app = Application.init().get()
+  initializePlugins(app)
+
+  while app.running:
+    discard

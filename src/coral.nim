@@ -1,2 +1,2 @@
-import coral/application
-export application
+import coral / [ application, plugins ]
+export application, plugins
