@@ -7,9 +7,9 @@ export prelude, plugins
 
 type
   ApplicationConfig* = object
-    width = 1280
-    height = 720
-    title = "Coral"
+    width* = 1280
+    height* = 720
+    title* = "Coral"
 
   Application* = object
     renderer: SDL_Renderer
@@ -22,7 +22,7 @@ proc `=destroy`(app: Application) =
 
 proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R(Application, string).} =
   if not SDL_Init(SDL_INIT_VIDEO):
-    let message = $SDL_GetError()
+    return Err($SDL_GetError())
 
   let window = SDL_CreateWindow(config.title.cstring, config.width, config.height, 0)
   if window.isNil:
@@ -40,19 +40,13 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
     plugins: plugins
   ))
 
-macro initializePlugins* (app: untyped): auto =
-  result = nnkStmtList.newTree()
-  for i in 0..<PluginCtors.len:
-    let name = ident(PluginCtors[i].strVal)
-    let id = PluginIds[i].strVal()
-    result.add(
-      quote do:
-        `app`.plugins.addPlugin(`id`, `name`())
-    )
+proc add*(app: var Application, plugin: Plugin): var Application {.discardable.} =
+  app.plugins.add(plugin)
+  app
 
-proc running*(app: var Application): bool =
+proc running* (app: var Application): bool =
   var event: SDL_Event
-  
+
   while SDL_PollEvent(event):
     case event.type:
       of SDL_EVENT_QUIT:
@@ -61,3 +55,10 @@ proc running*(app: var Application): bool =
         discard
 
   result = app.running 
+
+proc beginFrame* (app: var Application) =
+  SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
+  SDL_RenderClear(app.renderer)
+
+proc endFrame* (app: var Application) =
+  SDL_RenderPresent(app.renderer)

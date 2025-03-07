@@ -9,4 +9,6 @@ when isMainModule:
   initializePlugins(app)
 
   while app.running:
-    discard
+    app.beginFrame()
+
+    app.endFrame()
