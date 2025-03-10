@@ -1,14 +1,14 @@
 import sdl3
 
-import prelude, plugins, macros, macrocache
-export prelude, plugins
+import prelude, plugins, drawing, actions, macros
+export prelude, plugins, drawing, actions
 
 {.push raises: [].}
 
 type
   ApplicationConfig* = object
-    width* = 1280
-    height* = 720
+    width* = 640 * 2
+    height* = 480 * 2
     title* = "Coral"
 
   Application* = object
@@ -16,6 +16,7 @@ type
     window: SDL_Window
     running: bool = true
     plugins*: Plugins
+    artist*: Artist
 
 proc `=destroy`(app: Application) =
   SDL_Quit()
@@ -24,6 +25,7 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
   if not SDL_Init(SDL_INIT_VIDEO):
     return Err($SDL_GetError())
 
+  discard SDL_ScaleMode(SDL_SCALEMODE_NEAREST)
   let window = SDL_CreateWindow(config.title.cstring, config.width, config.height, 0)
   if window.isNil:
     return Err($SDL_GetError())
@@ -37,7 +39,8 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
   result = Ok(T(
     renderer: renderer,
     window: window,
-    plugins: plugins
+    plugins: plugins,
+    artist: Artist.init(renderer)
   ))
 
 proc add*(app: var Application, plugin: Plugin): var Application {.discardable.} =
@@ -51,14 +54,40 @@ proc running* (app: var Application): bool =
     case event.type:
       of SDL_EVENT_QUIT:
         app.running = false
+      of SDL_EVENT_KEY_DOWN:
+        handleKeyPressed(cast[Keycode](event.key.key))
+      of SDL_EVENT_KEY_UP:
+        handleKeyReleased(cast[Keycode](event.key.key))
       else:
         discard
 
   result = app.running 
 
-proc beginFrame* (app: var Application) =
+proc load* (app: var Application) {.raises: [Exception].} =
+  for plugin in app.plugins.plugins:
+    plugin.load()
+
+proc update* (app: var Application) {.raises: [Exception].} =
+  defer: updateActions()
+  for plugin in app.plugins.plugins:
+    plugin.update()
+
+proc beginFrame* (app: Application) =
   SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
   SDL_RenderClear(app.renderer)
 
-proc endFrame* (app: var Application) =
+proc endFrame* (app: Application) =
+  app.artist.render()
   SDL_RenderPresent(app.renderer)
+
+proc render* (app: Application) {.raises: [Exception].} =
+  app.beginFrame()
+  for plugin in app.plugins.plugins:
+    plugin.render(app.artist)
+  app.endFrame()
+
+proc run* (app: var Application) {.raises: [Exception].} =
+  app.load()
+  while app.running():
+    app.update()
+    app.render()

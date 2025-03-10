@@ -1,14 +1,6 @@
 import coral
 
-plugin Demo:
-  proc load() =
-    echo "LOADING DEMO"
+import unittest
 
-when isMainModule:
-  var app = Application.init().get()
-  initializePlugins(app)
-
-  while app.running:
-    app.beginFrame()
-
-    app.endFrame()
+test "Hello, World":
+  discard

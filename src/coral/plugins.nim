@@ -1,10 +1,12 @@
+from drawing import Artist
+
 type
   Plugin* = ref object of RootObj
 
 method load* (self: Plugin): void {.base.} = discard
 method unload* (self: Plugin): void {.base.} = discard
 method update* (self: Plugin): void {.base.} = discard
-method render* (self: Plugin): void {.base.} = discard
+method render* (self: Plugin, artist: Artist): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
 
 type
