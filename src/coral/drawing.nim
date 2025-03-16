@@ -9,6 +9,7 @@ type
 
   Canvas* = object
     layer: int
+    color*: SDL_FColor
     width, height: int
     texture: SDL_Texture
 
@@ -36,6 +37,7 @@ proc newCanvas* (artist: var Artist, width, height: int, layer = 0): Canvas =
     width.cint, 
     height.cint
   )
+  result.color = SDL_FColor(r: 0.0, g: 0.0, b: 1.0, a: 1.0)
   artist.canvases.add(result)
 
 proc setColor* (artist: Artist, color = White) =
@@ -51,6 +53,8 @@ proc color* (artist: Artist): SDL_FColor =
 proc setCanvas* (artist: Artist, canvas: Canvas) =
   if not SDL_SetRenderTarget(artist.renderer, canvas.texture):
     raise CatchableError.newException($SDL_GetError())
+  artist.color = canvas.color
+  SDL_RenderClear(artist.renderer)
 
 proc unsetCanvas* (artist: Artist) =
   discard SDL_SetRenderTarget(artist.renderer, nil)
