@@ -1,4 +1,7 @@
-import sdl3
+import std / [ options ]
+
+import sdl3, bumpy
+import resources
 
 const White* = SDL_FColor(r: 1.0, g: 1.0, b: 1.0, a: 1.0)
 
@@ -38,6 +41,7 @@ proc newCanvas* (artist: var Artist, width, height: int, layer = 0): Canvas =
     height.cint
   )
   result.color = SDL_FColor(r: 0.0, g: 0.0, b: 1.0, a: 1.0)
+  SDL_SetTextureScaleMode(result.texture, SDL_SCALEMODE_NEAREST)
   artist.canvases.add(result)
 
 proc setColor* (artist: Artist, color = White) =
@@ -107,3 +111,11 @@ proc line* (artist: Artist, x1, y1, x2, y2: SomeNumber, color = White) =
     x2.cfloat,
     y2.cfloat
   )
+
+proc image* (artist: Artist, dest: Rect, texture: Texture, region = none(Rect), color = White) =
+  artist.color = color
+  let r = region.get(rect(0.0, 0.0, texture.width.cfloat, texture.height.cfloat))
+  var 
+    s = SDL_FRect(x: dest.x, y: dest.y, w: dest.w, h: dest.h)
+    d = SDL_FRect(x: r.x, y: r.y, w: r.w, h: r.h)
+  discard SDL_RenderTexture(artist.renderer, texture.sdlTexture(), d.addr, s.addr)

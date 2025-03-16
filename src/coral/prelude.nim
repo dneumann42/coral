@@ -1,8 +1,8 @@
 {.push raises: [].}
 
-import std / [ macros, options ]
+import std / [ macros, options, logging ]
 import results
-export results
+export results, logging, options
 
 macro O* (T: untyped, procedure: untyped): untyped =
   procedure[3][0] = nnkBracketExpr.newTree(newIdentNode("Option"), ident(T.repr)) 
@@ -21,3 +21,13 @@ macro R* (T, E: untyped, procedure: untyped): untyped =
       template Err(x: `E`): Result[`T`, `E`] = err(x)
   )
   return procedure
+
+template withIt* [T] (o: Option[T], blk: untyped): auto =
+  block:
+    let o1 = o
+    if o1.isSome():
+      let it {.inject.} = o1.get()
+      blk
+
+template raiseError* (s: string): auto =
+  raise CatchableError.newException(s)

@@ -1,6 +1,6 @@
 import std / [ typetraits ]
 
-from drawing import Artist
+from drawing import Artist, Canvas
 import appcommands
 
 type
@@ -13,6 +13,12 @@ method unload* (self: Plugin): void {.base.} = discard
 method update* (self: Plugin): void {.base.} = discard
 method render* (self: Plugin, artist: Artist): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
+
+type 
+  ScenePlugin* = ref object of Plugin
+    canvas*: Canvas
+
+method isScene* (self: ScenePlugin): bool = true
 
 iterator cmds* (plugin: Plugin): Command =
   for cmd in plugin.commands:

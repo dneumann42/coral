@@ -1,9 +1,9 @@
-import std / [ options, sequtils ]
+import std / [ options, sequtils, logging, macros ]
 
 import sdl3
 
-import prelude, plugins, drawing, actions, appcommands, macros
-export prelude, plugins, drawing, actions
+import prelude, plugins, drawing, actions, resources, appcommands 
+export prelude, plugins, drawing, actions, resources
 
 {.push raises: [].}
 
@@ -20,15 +20,19 @@ type
     sceneStack: seq[string]
     plugins*: Plugins
     artist*: Artist
+    resources*: Resources
 
 proc `=destroy`(app: Application) =
   SDL_Quit()
 
 proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R(Application, string).} =
+  addHandler(newConsoleLogger())
+
+  discard SDL_ScaleMode(SDL_SCALEMODE_NEAREST)
+
   if not SDL_Init(SDL_INIT_VIDEO):
     return Err($SDL_GetError())
 
-  discard SDL_ScaleMode(SDL_SCALEMODE_NEAREST)
   let window = SDL_CreateWindow(config.title.cstring, config.width, config.height, 0)
   if window.isNil:
     return Err($SDL_GetError())
@@ -44,7 +48,8 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
     window: window,
     plugins: plugins,
     sceneStack: @[],
-    artist: Artist.init(renderer)
+    artist: Artist.init(renderer),
+    resources: Resources.init(renderer)
   ))
 
 proc push* (app: var Application, sceneId: string): var Application {.discardable.} =
