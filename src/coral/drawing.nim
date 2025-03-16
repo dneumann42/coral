@@ -6,9 +6,13 @@ import resources
 const White* = SDL_FColor(r: 1.0, g: 1.0, b: 1.0, a: 1.0)
 
 type
+  Camera* = object
+    x*, y*: float
+
   Artist* = object
     renderer: SDL_Renderer
     canvases: seq[Canvas]
+    camera*: Camera
 
   Canvas* = object
     layer: int
@@ -80,7 +84,12 @@ proc render* (artist: Artist) =
   for canvas in artist.canvases:
     var 
       src = SDL_FRect(x: 0.0, y: 0.0, w: canvas.width.toFloat(), h: canvas.height.toFloat())
-      dst = SDL_FRect(x: 0.0, y: 0.0, w: w.toFloat(), h: h.toFloat())
+      dst = SDL_FRect(
+        x: -artist.camera.x, 
+        y: -artist.camera.y, 
+        w: w.toFloat(), 
+        h: h.toFloat()
+      )
     discard SDL_RenderTexture(
       artist.renderer,
       canvas.texture,

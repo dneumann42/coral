@@ -17,6 +17,9 @@ proc rgba*(colorInt: uint32): SDL_FColor =
   
   result = SDL_Color(r: r, g: g, b: b, a: a).colorToFColor()
 
+const Black* = 0x000000ff'u32.rgba
+const White* = 0xffffffff'u32.rgba
+const Transparent* = 0x00000000.rgba
 const DarkChocolate* = 0x472d3cff'u32.rgba
 const Chocolate* = 0x5e3643ff'u32.rgba
 const DarkBrown* = 0x7a444aff'u32.rgba

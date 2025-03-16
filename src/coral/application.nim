@@ -2,8 +2,8 @@ import std / [ options, sequtils, logging, macros ]
 
 import sdl3
 
-import prelude, plugins, drawing, actions, resources, appcommands 
-export prelude, plugins, drawing, actions, resources
+import prelude, plugins, drawing, actions, resources, appcommands, clock
+export prelude, plugins, drawing, actions, resources, clock
 
 {.push raises: [].}
 
@@ -21,6 +21,10 @@ type
     plugins*: Plugins
     artist*: Artist
     resources*: Resources
+
+    now: uint64
+    last: uint64
+    clock: Clock
 
 proc `=destroy`(app: Application) =
   SDL_Quit()
@@ -41,6 +45,7 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
   if renderer.isNil:
     return Err($SDL_GetError())
 
+  discard SDL_SetRenderVSync(renderer, -1);
   var plugins = Plugins()
 
   result = Ok(T(
@@ -86,6 +91,16 @@ proc running* (app: var Application): bool =
       else:
         discard
 
+  app.last = app.now
+  app.now = SDL_GetPerformanceCounter()
+
+  if app.clock.ticks == 0:
+    app.last = app.now  
+
+  let diff = max(app.now, app.last) - min(app.now, app.last)
+  app.clock.dt = diff.float64 * (1000.0 / SDL_GetPerformanceFrequency().float64) / 1000.0
+  inc app.clock.ticks
+
   result = app.running 
 
 proc load* (app: var Application) {.raises: [Exception].} =
@@ -99,7 +114,7 @@ proc update* (app: var Application) {.raises: [Exception].} =
   for plugin in app.plugins.mplugins:
     if plugin.isScene and plugin.id != app.currentScene():
       continue
-    plugin.update()
+    plugin.update(app.clock)
     for cmd in plugin.cmds:
       commands.add(cmd)
     plugin.reset()
@@ -133,4 +148,10 @@ proc run* (app: var Application) {.raises: [Exception].} =
   app.load()
   while app.running():
     app.update()
+
+    for plugin in app.plugins.plugins:
+      if plugin.isScene and plugin.id != app.currentScene():
+        continue
+      plugin.preRender(app.artist)
+
     app.render()

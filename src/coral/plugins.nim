@@ -1,5 +1,6 @@
 import std / [ typetraits ]
 
+from clock import Clock
 from drawing import Artist, Canvas
 import appcommands
 
@@ -10,7 +11,8 @@ type
 
 method load* (self: Plugin): void {.base.} = discard
 method unload* (self: Plugin): void {.base.} = discard
-method update* (self: Plugin): void {.base.} = discard
+method update* (self: Plugin, clock: Clock): void {.base.} = discard
+method preRender* (self: Plugin, artist: var Artist): void {.base.} = discard
 method render* (self: Plugin, artist: Artist): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
 
