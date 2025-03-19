@@ -84,12 +84,7 @@ proc render* (artist: Artist) =
   for canvas in artist.canvases:
     var 
       src = SDL_FRect(x: 0.0, y: 0.0, w: canvas.width.toFloat(), h: canvas.height.toFloat())
-      dst = SDL_FRect(
-        x: -artist.camera.x, 
-        y: -artist.camera.y, 
-        w: w.toFloat(), 
-        h: h.toFloat()
-      )
+      dst = SDL_FRect(x: 0.0, y: 0.0, w: w.toFloat(), h: h.toFloat())
     discard SDL_RenderTexture(
       artist.renderer,
       canvas.texture,
@@ -97,29 +92,31 @@ proc render* (artist: Artist) =
       dst.addr,
     )
 
+proc transform(artist: Artist, x, y: SomeNumber): (SomeNumber, SomeNumber) =
+  result = (x - artist.camera.x, y - artist.camera.y)
+
 proc rect* (artist: Artist, x, y, w, h: SomeNumber, color = White, filled = false) =
+  let (xx, yy) = artist.transform(x, y)
   artist.color = color
   if filled:
-    SDL_RenderFillRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
+    SDL_RenderFillRect(artist.renderer, SDL_FRect(x: xx.cfloat, y: yy.cfloat, w: w.cfloat, h: h.cfloat))
   else:
-    SDL_RenderRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
+    SDL_RenderRect(artist.renderer, SDL_FRect(x: xx.cfloat, y: yy.cfloat, w: w.cfloat, h: h.cfloat))
 
 proc circle* (artist: Artist, x, y, r: SomeNumber, color = White, filled = false) =
+  let (xx, yy) = artist.transform(x, y)
   discard
 
 proc debugText* (artist: Artist, text: string, x, y: SomeNumber, color = White) =
+  let (xx, yy) = artist.transform(x, y)
   artist.color = color
-  discard SDL_RenderDebugText(artist.renderer, x.cfloat, y.cfloat, text.cstring)
+  discard SDL_RenderDebugText(artist.renderer, xx.cfloat, yy.cfloat, text.cstring)
 
 proc line* (artist: Artist, x1, y1, x2, y2: SomeNumber, color = White) =
+  let (x1, y1) = artist.transform(x1, y1)
+  let (x2, y2) = artist.transform(x2, y2)
   artist.color = color
-  SDL_RenderLine(
-    artist.renderer,
-    x1.cfloat,
-    y1.cfloat,
-    x2.cfloat,
-    y2.cfloat
-  )
+  SDL_RenderLine(artist.renderer, x1.cfloat, y1.cfloat, x2.cfloat, y2.cfloat)
 
 proc image* (artist: Artist, dest: Rect, texture: Texture, region = none(Rect), color = White) =
   artist.color = color
