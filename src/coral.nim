@@ -1,2 +1,2 @@
-import coral / [ application, plugins, prelude, drawing, palette, maths, resources ]
-export application, plugins, prelude, drawing, palette, maths, resources
+import coral / [ application, plugins, prelude, drawing, palette, maths, resources, actions, profiles ]
+export application, plugins, prelude, drawing, palette, maths, resources, actions, profiles

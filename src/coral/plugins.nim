@@ -35,7 +35,7 @@ proc push* (plugin: Plugin, id: string) =
 proc goto* (plugin: Plugin, id: string) =
   plugin.commands.add(Command(kind: gotoScene, gotoId: id))
 
-proc pop* (plugin: Plugin, id: string) =
+proc pop* (plugin: Plugin) =
   plugin.commands.add(Command(kind: popScene))
 
 type

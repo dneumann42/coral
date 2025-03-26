@@ -9,15 +9,24 @@ export prelude, plugins, drawing, actions, resources, clock
 
 type
   ApplicationConfig* = object
+    organization* = "Coral Game"
+    name* = "Coral"
     width* = 640 * 2
     height* = 480 * 2
     title* = "Coral"
 
+  ApplicationMeta* = object
+    organization* = "Coral Game"
+    name* = "Coral"
+
   Application* = object
+    meta*: ApplicationMeta
+
     renderer: SDL_Renderer
     window: SDL_Window
     running: bool = true
     sceneStack: seq[string]
+    loadScenes: seq[string]
     plugins*: Plugins
     artist*: Artist
     resources*: Resources
@@ -49,6 +58,10 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
   var plugins = Plugins()
 
   result = Ok(T(
+    meta: ApplicationMeta(
+      organization: config.organization,
+      name: config.name
+    ),
     renderer: renderer,
     window: window,
     plugins: plugins,
@@ -59,12 +72,14 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
 
 proc push* (app: var Application, sceneId: string): var Application {.discardable.} =
   app.sceneStack.add(sceneId)
+  app.loadScenes.add(sceneId)
   app
 
 proc pop* (app: var Application): Option[string] =
   if app.sceneStack.len() == 0:
     return
-  result = app.sceneStack[^1].some()
+  result = app.sceneStack.pop().some()
+  echo "HERE?", app.sceneStack
 
 proc goto* (app: var Application, sceneId: string): var Application {.discardable.} =
   discard app.pop()
@@ -88,6 +103,10 @@ proc running* (app: var Application): bool =
         handleKeyPressed(cast[Keycode](event.key.key))
       of SDL_EVENT_KEY_UP:
         handleKeyReleased(cast[Keycode](event.key.key))
+      of SDL_EVENT_MOUSE_BUTTON_UP:
+        handleMousePressed(event.button.button)
+      of SDL_EVENT_MOUSE_BUTTON_DOWN:
+        handleMouseReleased(event.button.button)
       else:
         discard
 
@@ -105,6 +124,8 @@ proc running* (app: var Application): bool =
 
 proc load* (app: var Application) {.raises: [Exception].} =
   for plugin in app.plugins.plugins:
+    if plugin.isScene:
+      continue
     plugin.load()
 
 proc update* (app: var Application) {.raises: [Exception].} =
@@ -114,6 +135,11 @@ proc update* (app: var Application) {.raises: [Exception].} =
   for plugin in app.plugins.mplugins:
     if plugin.isScene and plugin.id != app.currentScene():
       continue
+
+    if app.loadScenes.contains(plugin.id):
+      app.loadScenes.del(app.loadScenes.find(plugin.id))
+      plugin.load()
+
     plugin.update(app.clock)
     for cmd in plugin.cmds:
       commands.add(cmd)
@@ -132,11 +158,11 @@ proc beginFrame* (app: Application) =
   SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
   SDL_RenderClear(app.renderer)
 
-proc endFrame* (app: Application) =
+proc endFrame* (app: var Application) =
   app.artist.render()
   SDL_RenderPresent(app.renderer)
 
-proc render* (app: Application) {.raises: [Exception].} =
+proc render* (app: var Application) {.raises: [Exception].} =
   app.beginFrame()
   for plugin in app.plugins.plugins:
     if plugin.isScene and plugin.id != app.currentScene():

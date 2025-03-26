@@ -1,4 +1,4 @@
-import std / [ options ]
+import std / [ options, oids, sets, tables ]
 
 import sdl3, bumpy
 import resources
@@ -13,26 +13,68 @@ type
     renderer: SDL_Renderer
     canvases: seq[Canvas]
     camera*: Camera
+    cursors: Table[SDL_SystemCursor, SDL_Cursor]
 
-  Canvas* = object
+  Canvas* = ref object
+    uid: Oid
     layer: int
     color*: SDL_FColor
     width, height: int
     texture: SDL_Texture
+    shouldRender*: bool
 
   Color* = SDL_FColor
+
+  SystemCursorKind* = enum
+    defaultCursor = SDL_SYSTEM_CURSOR_DEFAULT
+    text = SDL_SYSTEM_CURSOR_TEXT
+    wait = SDL_SYSTEM_CURSOR_WAIT
+    crosshair = SDL_SYSTEM_CURSOR_CROSSHAIR
+    progress = SDL_SYSTEM_CURSOR_PROGRESS
+    nwseResize = SDL_SYSTEM_CURSOR_NWSE_RESIZE
+    neswResize = SDL_SYSTEM_CURSOR_NESW_RESIZE
+    ewResize = SDL_SYSTEM_CURSOR_EW_RESIZE
+    nsResize = SDL_SYSTEM_CURSOR_NS_RESIZE
+    move = SDL_SYSTEM_CURSOR_MOVE
+    notAllowed = SDL_SYSTEM_CURSOR_NOT_ALLOWED  
+    pointer = SDL_SYSTEM_CURSOR_POINTER      
+    nwResize = SDL_SYSTEM_CURSOR_NW_RESIZE    
+    nResize = SDL_SYSTEM_CURSOR_N_RESIZE     
+    neresize = SDL_SYSTEM_CURSOR_NE_RESIZE    
+    eResize = SDL_SYSTEM_CURSOR_E_RESIZE     
+    seResize = SDL_SYSTEM_CURSOR_SE_RESIZE    
+    sResize = SDL_SYSTEM_CURSOR_S_RESIZE     
+    swResize = SDL_SYSTEM_CURSOR_SW_RESIZE    
+    wResize = SDL_SYSTEM_CURSOR_W_RESIZE     
+    count = SDL_SYSTEM_CURSOR_COUNT
 
 proc init* (T: type Artist, renderer: SDL_Renderer): T =
   result = T(
     renderer: renderer,
+    cursors: initTable[SDL_SystemCursor, SDL_Cursor]()
   )
+  for cursor in low(SDL_SystemCursor) .. high(SDL_SystemCursor):
+    var systemCursor = SDL_CreateSystemCursor(cursor)
+    result.cursors[cursor] = systemCursor
+
+proc deinit* (artist: Artist) =
+  for cursor in artist.cursors.values:
+    SDL_DestroyCursor(cursor)
 
 proc init* (T: type Canvas, width, height: int, layer = 0): T =
   result = T(
+    uid: genOid(),
     layer: layer,
     width: width,
     height: height
   )
+
+proc setSystemCursor* (artist: Artist, kind: SystemCursorKind) =
+  var cursor = artist.cursors[cast[SDL_SystemCursor](kind)] 
+  discard SDL_SetCursor(cursor)
+
+proc resetSystemCursor* (artist: Artist) =
+  discard SDL_SetCursor(artist.cursors[cast[SDL_SystemCursor](defaultCursor)])
 
 proc newCanvas* (artist: var Artist, width, height: int, layer = 0): Canvas =
   result = Canvas.init(width, height, layer)
@@ -58,30 +100,37 @@ proc color* (artist: Artist): SDL_FColor =
   result = SDL_FColor(r: 0.0, g: 0.0, b: 0.0, a: 0.0)
   discard SDL_GetRenderDrawColorFloat(artist.renderer, result.r, result.g, result.b, result.a)
 
-proc setCanvas* (artist: Artist, canvas: Canvas) =
+proc setCanvas* (artist: Artist, canvas: var Canvas) =
   if not SDL_SetRenderTarget(artist.renderer, canvas.texture):
     raise CatchableError.newException($SDL_GetError())
   artist.color = canvas.color
+  canvas.shouldRender = true
   SDL_RenderClear(artist.renderer)
 
 proc unsetCanvas* (artist: Artist) =
   discard SDL_SetRenderTarget(artist.renderer, nil)
 
-template canvas* (artist: Artist, canvas: Canvas, blk: untyped): auto =
+template canvas* (artist: Artist, canvas: var Canvas, blk: untyped): auto =
   artist.setCanvas(canvas)
   block:
     blk
   artist.unsetCanvas()
 
-proc render* (artist: Artist) =
+proc endRender(artist: var Artist) =
+  for canvas in artist.canvases.mitems:
+    canvas.shouldRender = false
+
+proc render* (artist: var Artist) =
   let window = SDL_GetRenderWindow(artist.renderer)
 
   var 
     w: cint = 640
     h: cint = 480
   discard SDL_GetWindowSize(window, w, h)
-
-  for canvas in artist.canvases:
+  for canvas in artist.canvases.mitems:
+    if not canvas.shouldRender:
+      continue
+    canvas.shouldRender = false
     var 
       src = SDL_FRect(x: 0.0, y: 0.0, w: canvas.width.toFloat(), h: canvas.height.toFloat())
       dst = SDL_FRect(x: 0.0, y: 0.0, w: w.toFloat(), h: h.toFloat())
@@ -120,8 +169,9 @@ proc line* (artist: Artist, x1, y1, x2, y2: SomeNumber, color = White) =
 
 proc image* (artist: Artist, dest: Rect, texture: Texture, region = none(Rect), color = White) =
   artist.color = color
+  let (x, y) = (dest.x - artist.camera.x, dest.y - artist.camera.y)
   let r = region.get(rect(0.0, 0.0, texture.width.cfloat, texture.height.cfloat))
   var 
-    s = SDL_FRect(x: dest.x, y: dest.y, w: dest.w, h: dest.h)
+    s = SDL_FRect(x: x, y: y, w: dest.w, h: dest.h)
     d = SDL_FRect(x: r.x, y: r.y, w: r.w, h: r.h)
   discard SDL_RenderTexture(artist.renderer, texture.sdlTexture(), d.addr, s.addr)
