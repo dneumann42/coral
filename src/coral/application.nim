@@ -1,4 +1,4 @@
-import std / [ options, sequtils, logging, macros ]
+import std / [ options, sequtils, logging, macros, algorithm, sugar ]
 
 import sdl3
 
@@ -34,6 +34,8 @@ type
     now: uint64
     last: uint64
     clock: Clock
+
+    frames: seq[float64]
 
 proc `=destroy`(app: Application) =
   SDL_Quit()
@@ -79,7 +81,6 @@ proc pop* (app: var Application): Option[string] =
   if app.sceneStack.len() == 0:
     return
   result = app.sceneStack.pop().some()
-  echo "HERE?", app.sceneStack
 
 proc goto* (app: var Application, sceneId: string): var Application {.discardable.} =
   discard app.pop()
@@ -91,6 +92,12 @@ proc currentScene* (app: Application): string =
 proc add* [T: Plugin] (app: var Application, plugin: T): var Application {.discardable.} =
   app.plugins.add(plugin)
   app
+
+proc sortPlugins* (app: var Application) =
+  try:
+    app.plugins.sortPlugins()
+  except:
+    echo getCurrentExceptionMsg()
 
 proc running* (app: var Application): bool =
   var event: SDL_Event
@@ -114,13 +121,22 @@ proc running* (app: var Application): bool =
   app.now = SDL_GetPerformanceCounter()
 
   if app.clock.ticks == 0:
-    app.last = app.now  
+    app.last = app.now
 
   let diff = max(app.now, app.last) - min(app.now, app.last)
   app.clock.dt = diff.float64 * (1000.0 / SDL_GetPerformanceFrequency().float64) / 1000.0
+  app.frames.add(app.clock.dt)
+
+  if app.frames.len >= 15:
+    app.clock.avgDt = 0.0
+    for dt in app.frames:
+      app.clock.avgDt += dt
+    app.clock.avgDt /= 15
+    app.frames.setLen(0)
+
   inc app.clock.ticks
 
-  result = app.running 
+  result = app.running
 
 proc load* (app: var Application) {.raises: [Exception].} =
   for plugin in app.plugins.plugins:
@@ -171,6 +187,7 @@ proc render* (app: var Application) {.raises: [Exception].} =
   app.endFrame()
 
 proc run* (app: var Application) {.raises: [Exception].} =
+  app.sortPlugins()
   app.load()
   while app.running():
     app.update()

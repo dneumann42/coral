@@ -1,4 +1,4 @@
-import std / [ typetraits ]
+import std / [ typetraits, algorithm, sugar ]
 
 from clock import Clock
 from drawing import Artist, Canvas
@@ -15,10 +15,13 @@ method update* (self: Plugin, clock: Clock): void {.base.} = discard
 method preRender* (self: Plugin, artist: var Artist): void {.base.} = discard
 method render* (self: Plugin, artist: Artist): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
+method priority* (self: Plugin): int = 0
 
-type 
-  ScenePlugin* = ref object of Plugin
+type
+  CanvasPlugin* = ref object of Plugin
     canvas*: Canvas
+
+  ScenePlugin* = ref object of CanvasPlugin
 
 method isScene* (self: ScenePlugin): bool = true
 
@@ -42,7 +45,10 @@ type
   Plugins* = object
     plugins: seq[Plugin]
 
-proc add* [T: Plugin] (ps: var Plugins, p: T) = 
+proc sortPlugins* (plugins: var Plugins) =
+  plugins.plugins.sort(proc(a, b: Plugin): int = cmp(b.priority(), a.priority()))
+
+proc add* [T: Plugin] (ps: var Plugins, p: T) =
   var p2 = p
   p2.id = T.sceneId()
   ps.plugins.add(p2)

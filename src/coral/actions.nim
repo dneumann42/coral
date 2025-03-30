@@ -60,10 +60,10 @@ proc mouseLeft* (): ActionState =
     up: not input.mouseLeft.now
   )
 
-proc mousePosition* (): tuple[x, y: float] =
+proc mousePosition* (scaleX = 1.0, scaleY = 1.0): tuple[x, y: float] =
   var x, y: cfloat
   discard SDL_GetMouseState(x, y)
-  result = (x, y)
+  result = (x / scaleX, y / scaleY)
 
 proc addAction* (id: string, key: Keycode) =
   input.actions[id] = Binding(key: key.some(), now: false, last: false)
