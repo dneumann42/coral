@@ -126,7 +126,6 @@ proc running* (app: var Application): bool =
   let diff = max(app.now, app.last) - min(app.now, app.last)
   app.clock.dt = diff.float64 * (1000.0 / SDL_GetPerformanceFrequency().float64) / 1000.0
   app.frames.add(app.clock.dt)
-
   if app.frames.len >= 15:
     app.clock.avgDt = 0.0
     for dt in app.frames:

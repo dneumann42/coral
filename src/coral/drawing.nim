@@ -20,6 +20,7 @@ type
     layer: int
     color*: SDL_FColor
     width, height: int
+    windowWidth, windowHeight: int
     texture: SDL_Texture
     shouldRender*: bool
 
@@ -47,6 +48,14 @@ type
     swResize = SDL_SYSTEM_CURSOR_SW_RESIZE    
     wResize = SDL_SYSTEM_CURSOR_W_RESIZE     
     count = SDL_SYSTEM_CURSOR_COUNT
+
+proc windowSize(artist: Artist): (int, int) =
+  let window = SDL_GetRenderWindow(artist.renderer)
+  var 
+    w: cint = 640
+    h: cint = 480
+  discard SDL_GetWindowSize(window, w, h)
+  result = (w, h)
 
 proc init* (T: type Artist, renderer: SDL_Renderer): T =
   result = T(
@@ -77,6 +86,7 @@ proc resetSystemCursor* (artist: Artist) =
   discard SDL_SetCursor(artist.cursors[cast[SDL_SystemCursor](defaultCursor)])
 
 proc newCanvas* (artist: var Artist, width, height: int, layer = 0): Canvas =
+  let (ww, wh) = artist.windowSize()
   result = Canvas.init(width, height, layer)
   # TODO: handle error
   result.texture = SDL_CreateTexture(
@@ -84,8 +94,10 @@ proc newCanvas* (artist: var Artist, width, height: int, layer = 0): Canvas =
     SDL_PIXELFORMAT_RGBA32, 
     SDL_TEXTUREACCESS_TARGET, 
     width.cint, 
-    height.cint
+    height.cint,
   )
+  result.windowWidth = ww
+  result.windowHeight = wh
   result.color = SDL_FColor(r: 0.0, g: 0.0, b: 1.0, a: 1.0)
   SDL_SetTextureScaleMode(result.texture, SDL_SCALEMODE_NEAREST)
   artist.canvases.add(result)
@@ -101,10 +113,13 @@ proc color* (artist: Artist): SDL_FColor =
   discard SDL_GetRenderDrawColorFloat(artist.renderer, result.r, result.g, result.b, result.a)
 
 proc setCanvas* (artist: Artist, canvas: var Canvas) =
+  let (ww, wh) = artist.windowSize()
   if not SDL_SetRenderTarget(artist.renderer, canvas.texture):
     raise CatchableError.newException($SDL_GetError())
   artist.color = canvas.color
   canvas.shouldRender = true
+  canvas.windowWidth = ww
+  canvas.windowHeight = wh
   SDL_RenderClear(artist.renderer)
 
 proc unsetCanvas* (artist: Artist) =
@@ -123,17 +138,29 @@ proc endRender(artist: var Artist) =
 proc render* (artist: var Artist) =
   let window = SDL_GetRenderWindow(artist.renderer)
 
-  var 
-    w: cint = 640
-    h: cint = 480
-  discard SDL_GetWindowSize(window, w, h)
+  var (w, h) = artist.windowSize()
+
   for canvas in artist.canvases.mitems:
     if not canvas.shouldRender:
       continue
+  
+    let 
+      scale = 
+        if canvas.height == 0:
+          0.0
+        else:
+          h.toFloat() / canvas.height.toFloat()
+      cw = canvas.width.toFloat() * scale
+      ch = canvas.height.toFloat() * scale
+
+    let x = w.toFloat / 2.0 - cw / 2.0
+    let y = h.toFloat / 2.0 - ch / 2.0
+
     canvas.shouldRender = false
     var 
-      src = SDL_FRect(x: 0.0, y: 0.0, w: canvas.width.toFloat(), h: canvas.height.toFloat())
-      dst = SDL_FRect(x: 0.0, y: 0.0, w: w.toFloat(), h: h.toFloat())
+      src = SDL_FRect(
+        x: 0.0, y: 0.0, w: canvas.width.toFloat(), h: canvas.height.toFloat())
+      dst = SDL_FRect(x: x, y: y, w: cw, h: ch)
     discard SDL_RenderTexture(
       artist.renderer,
       canvas.texture,
