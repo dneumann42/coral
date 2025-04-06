@@ -2,7 +2,11 @@ import std / [ typetraits, algorithm, sugar ]
 
 from clock import Clock
 from drawing import Artist, Canvas
+
+import messages
 import appcommands
+
+export messages
 
 type
   Plugin* = ref object of RootObj
@@ -15,7 +19,9 @@ method update* (self: Plugin, clock: Clock): void {.base.} = discard
 method preRender* (self: Plugin, artist: var Artist): void {.base.} = discard
 method render* (self: Plugin, artist: Artist): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
-method priority* (self: Plugin): int = 0
+method priority* (self: Plugin): int {.base.} = 0
+method onMessage* (self: Plugin, msg: AbstractMessage): void {.base.} =
+  discard
 
 type
   CanvasPlugin* = ref object of Plugin
@@ -40,6 +46,10 @@ proc goto* (plugin: Plugin, id: string) =
 
 proc pop* (plugin: Plugin) =
   plugin.commands.add(Command(kind: popScene))
+
+proc emit* [M: AbstractMessage] (plugin: Plugin, msg: M) =
+  plugin.commands.add(
+    Command(kind: emit, msg: msg.AbstractMessage))
 
 type
   Plugins* = object

@@ -25,6 +25,8 @@ type
     running: bool = true
     sceneStack: seq[string]
     loadScenes: seq[string]
+    messages: seq[AbstractMessage]
+
     plugins*: Plugins
     artist*: Artist
     resources*: Resources
@@ -153,6 +155,11 @@ proc update* (app: var Application) {.raises: [Exception].} =
       app.loadScenes.del(app.loadScenes.find(plugin.id))
       plugin.load()
 
+    for m in app.messages:
+      if m.handled: 
+        continue
+      plugin.onMessage(m)
+
     plugin.update(app.clock)
     for cmd in plugin.cmds:
       commands.add(cmd)
@@ -166,6 +173,10 @@ proc update* (app: var Application) {.raises: [Exception].} =
         discard app.pop()
       of gotoScene:
         app.goto(cmd.gotoId)
+      of emit:
+        app.messages.add(cmd.msg)
+
+  app.messages.keepIf((m) => not m.handled)
 
 proc beginFrame* (app: Application) =
   SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
