@@ -5,8 +5,6 @@ import sdl3
 import prelude, plugins, drawing, actions, resources, appcommands, clock
 export prelude, plugins, drawing, actions, resources, clock
 
-{.push raises: [].}
-
 type
   ApplicationConfig* = object
     organization* = "Coral Game"

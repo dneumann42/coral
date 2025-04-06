@@ -38,7 +38,7 @@ proc init* (T: type Resources, renderer: SDL_Renderer): T =
 proc add* [T] (self: var Resources, id: string, asset: sink T) =
   self.res[id] = Resource[T](asset: asset).AbstractResource
 
-proc get* [T] (self: var Resources, id: string): lent T =
+proc get* [T] (self: Resources, id: string): lent T =
   result = cast[Resource[T]](self.res[id]).asset
 
 import stb_image/read as stbi
