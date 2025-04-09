@@ -21,8 +21,8 @@ type
     uid: Oid
     layer: int
     color*: SDL_FColor
-    width, height: int
-    windowWidth, windowHeight: int
+    width*, height*: int
+    windowWidth*, windowHeight*: int
     texture: SDL_Texture
     shouldRender*: bool
 
@@ -123,6 +123,12 @@ proc setCanvas* (artist: Artist, canvas: var Canvas) =
   canvas.windowWidth = ww
   canvas.windowHeight = wh
   SDL_RenderClear(artist.renderer)
+
+proc canvasScale* (canvas: Canvas): tuple[x, y: float] =
+  result = (
+    canvas.width.toFloat / max(canvas.windowWidth.toFloat, 0.001),
+    canvas.height.toFloat / max(canvas.windowHeight.toFloat, 0.001)
+  )
 
 proc unsetCanvas* (artist: Artist) =
   discard SDL_SetRenderTarget(artist.renderer, nil)

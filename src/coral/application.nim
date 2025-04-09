@@ -9,9 +9,9 @@ type
   ApplicationConfig* = object
     organization* = "Coral Game"
     name* = "Coral"
+    title* = "Coral"
     width* = 640 * 2
     height* = 480 * 2
-    title* = "Coral"
 
   ApplicationMeta* = object
     organization* = "Coral Game"
