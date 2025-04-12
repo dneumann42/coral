@@ -93,6 +93,10 @@ proc add* [T: Plugin] (app: var Application, plugin: T): var Application {.disca
   app.plugins.add(plugin)
   app
 
+proc add* (app: var Application, closure: proc(): void): var Application {.discardable.} =
+  app.plugins.add(closure)
+  app
+
 proc sortPlugins* (app: var Application) =
   try:
     app.plugins.sortPlugins()
@@ -145,6 +149,9 @@ proc load* (app: var Application) {.raises: [Exception].} =
 
 proc update* (app: var Application) {.raises: [Exception].} =
   defer: updateActions()
+
+  for plugin in app.plugins.closurePlugins:
+    plugin.invoke() 
 
   var commands = newSeq[Command]()
   for plugin in app.plugins.mplugins:

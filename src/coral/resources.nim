@@ -11,7 +11,7 @@ type
   Texture* = object
     p: SDL_Texture
 
-  Resources* = object
+  Resources* = ref object
     renderer: SDL_Renderer
     res: Table[string, AbstractResource]
 
@@ -35,7 +35,7 @@ proc sdlTexture* (t: Texture): auto = t.p
 proc init* (T: type Resources, renderer: SDL_Renderer): T =
   T(res: initTable[string, AbstractResource](), renderer: renderer)
 
-proc add* [T] (self: var Resources, id: string, asset: sink T) =
+proc add* [T] (self: Resources, id: string, asset: sink T) =
   self.res[id] = Resource[T](asset: asset).AbstractResource
 
 proc get* [T] (self: Resources, id: string): lent T =
@@ -43,7 +43,7 @@ proc get* [T] (self: Resources, id: string): lent T =
 
 import stb_image/read as stbi
 
-proc loadTexture* (self: var Resources, id: string, path: string) =
+proc loadTexture* (self: Resources, id: string, path: string) =
   var width, height, channels: int
   var data: seq[uint8]
   data = stbi.load(path, width, height, channels, stbi.Default)

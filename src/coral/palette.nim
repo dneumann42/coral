@@ -1,6 +1,8 @@
 from sdl3 import SDL_Color, SDL_FColor
 
-proc colorToFColor*(color: SDL_Color): SDL_FColor =
+type Color* = SDL_FColor
+
+proc colorToFColor* (color: SDL_Color): SDL_FColor =
   ## Converts SDL_Color (byte 0-255) to SDL_FColor (floating point 0.0-1.0)
   
   result.r = float(color.r) / 255.0
@@ -8,13 +10,12 @@ proc colorToFColor*(color: SDL_Color): SDL_FColor =
   result.b = float(color.b) / 255.0
   result.a = float(color.a) / 255.0
 
-proc rgba*(colorInt: uint32): SDL_FColor =
+proc rgba* (colorInt: uint32): SDL_FColor =
   let
     r: uint8 = (colorInt shr 24).uint8 and 0xFF
     g: uint8 = (colorInt shr 16).uint8 and 0xFF
     b: uint8 = (colorInt shr 8).uint8 and 0xFF
     a: uint8 = (colorInt).uint8 and 0xFF
-  
   result = SDL_Color(r: r, g: g, b: b, a: a).colorToFColor()
 
 const Black* = 0x000000ff'u32.rgba
@@ -50,3 +51,39 @@ const DarkOrange* = 0xe6582eff'u32.rgba
 const Red* = 0xa93b3bff'u32.rgba
 const Lavendar* = 0x827094ff'u32.rgba
 const SlateGray* = 0x4f546bff'u32.rgba
+
+const DefaultPalette* = [
+  Black,
+  White,
+  Transparent,
+  DarkChocolate,
+  Chocolate,
+  DarkBrown,
+  Brown,
+  LightBrown,
+  DarkTan,
+  Tan,
+  BrightGreen,
+  LimeGreen,
+  Green,
+  DarkGreen,
+  DarkGray,
+  Gray,
+  LightGray,
+  BrightGray,
+  SkyBlue,
+  LightBlue,
+  Blue,
+  DarkBlue,
+  DarkSlateGray,
+  DarkPurple,
+  Purple,
+  HotPink,
+  Pink,
+  Yellow,
+  Orange,
+  DarkOrange,
+  Red,
+  Lavendar,
+  SlateGray
+]

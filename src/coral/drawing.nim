@@ -1,9 +1,7 @@
 import std / [ options, oids, sets, tables ]
 
 import sdl3, bumpy
-import resources
-
-const White* = SDL_FColor(r: 1.0, g: 1.0, b: 1.0, a: 1.0)
+import resources, palette
 
 type
   Camera* = object
@@ -25,8 +23,6 @@ type
     windowWidth*, windowHeight*: int
     texture: SDL_Texture
     shouldRender*: bool
-
-  Color* = SDL_FColor
 
   SystemCursorKind* = enum
     defaultCursor = SDL_SYSTEM_CURSOR_DEFAULT
@@ -186,6 +182,9 @@ proc rect* (artist: Artist, x, y, w, h: SomeNumber, color = White, filled = fals
     SDL_RenderFillRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
   else:
     SDL_RenderRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
+
+proc rect* (artist: Artist, r: Rect, color = White, filled = false) =
+  artist.rect(r.x, r.y, r.w, r.h, color, filled)
 
 proc debugText* (artist: Artist, text: string, x, y: SomeNumber, color = White) =
   artist.color = color

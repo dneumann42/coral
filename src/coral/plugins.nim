@@ -29,11 +29,17 @@ type
 
   ScenePlugin* = ref object of CanvasPlugin
 
+  ClosurePlugin* = ref object of Plugin
+    closure: proc(): void {.closure.}
+
 method isScene* (self: ScenePlugin): bool = true
 
 iterator cmds* (plugin: Plugin): Command =
   for cmd in plugin.commands:
     yield cmd
+
+proc invoke* (plugin: ClosurePlugin) =
+  plugin.closure()
 
 proc reset* (plugin: Plugin) =
   plugin.commands.setLen(0)
@@ -54,6 +60,7 @@ proc emit* [M: AbstractMessage] (plugin: Plugin, msg: M) =
 type
   Plugins* = object
     plugins: seq[Plugin]
+    closurePlugins: seq[ClosurePlugin]
 
 proc sortPlugins* (plugins: var Plugins) =
   plugins.plugins.sort(proc(a, b: Plugin): int = cmp(b.priority(), a.priority()))
@@ -63,10 +70,17 @@ proc add* [T: Plugin] (ps: var Plugins, p: T) =
   p2.id = T.sceneId()
   ps.plugins.add(p2)
 
+proc add* (ps: var Plugins, c: proc(): void {.closure.}) =
+  ps.closurePlugins.add(ClosurePlugin(closure: c))
+
 proc sceneId* (T: typedesc): string = T.name
 
 iterator plugins* (ps: Plugins): auto =
   for plug in ps.plugins.items:
+    yield plug
+
+iterator closurePlugins* (ps: Plugins): auto =
+  for plug in ps.closurePlugins.items:
     yield plug
 
 iterator mplugins* (ps: var Plugins): var Plugin =
