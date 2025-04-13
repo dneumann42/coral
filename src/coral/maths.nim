@@ -7,14 +7,14 @@ proc lerp* [T: SomeFloat] (a, b, t: T): T =
 proc lerpPercent* [T: SomeFloat] (a, b, t: T): T =
   (a * (1.0 - t)) + (b * t)
 
-proc `+`* (a, b: tuple[x, y: int]): tuple[x, y: int] =
+proc `+`* [T] (a, b: tuple[x, y: T]): tuple[x, y: T] =
   result = (a.x + b.x, a.y + b.y)
 
-proc `-`* (a, b: tuple[x, y: int]): tuple[x, y: int] =
+proc `-`* [T] (a, b: tuple[x, y: T]): tuple[x, y: T] =
   result = (a.x - b.x, a.y - b.y)
 
-proc `*`* (a, b: tuple[x, y: int]): tuple[x, y: int] =
+proc `*`* [T] (a, b: tuple[x, y: T]): tuple[x, y: T] =
   result = (a.x * b.x, a.y * b.y)
 
-proc `/`* (a, b: tuple[x, y: int]): tuple[x, y: int] =
+proc `/`* [T] (a, b: tuple[x, y: T]): tuple[x, y: T] =
   result = (a.x div b.x, a.y div b.y)

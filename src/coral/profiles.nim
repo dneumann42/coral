@@ -6,6 +6,7 @@ type
     organization*, appName*: string
     name*: string
     version* = 0 
+    lastSaved*: DateTime
 
 proc init* (T: type Profile, name: string): T =
   T(name: name, version: 1)
@@ -39,6 +40,8 @@ proc readProfile* (name: string, profile: var Profile) =
   let profileData = readFile(profile.profileDirectory() / "profile.json").parseJson()
   profile.name = profileData["name"].to(string)
   profile.version = profileData["version"].to(int)
+  let lastSavedStr = profileData["lastSaved"].to(string)
+  profile.lastSaved = parse(lastSavedStr, "yyyy-MM-dd'T'HH:mm:sszzz", utc())
 
 proc readProfile* (profile: var Profile): string =
   readProfile(profile.name, profile)
@@ -48,7 +51,8 @@ proc writeProfile* (profile: Profile, data: string) =
   profile.createProfileDirectory()
   let profileData = %* { 
     "name": % profile.name, 
-    "version": % profile.version 
+    "version": % profile.version,
+    "lastSaved": % ( $now())
   }
   let d = profile.profileDirectory()
   writeFile(d / "profile.json", profileData.pretty)
