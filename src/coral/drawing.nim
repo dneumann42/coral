@@ -23,6 +23,7 @@ type
     windowWidth*, windowHeight*: int
     texture: SDL_Texture
     shouldRender*: bool
+    camera*: Camera
 
   SystemCursorKind* = enum
     defaultCursor = SDL_SYSTEM_CURSOR_DEFAULT
@@ -110,6 +111,17 @@ proc color* (artist: Artist): SDL_FColor =
   result = SDL_FColor(r: 0.0, g: 0.0, b: 0.0, a: 0.0)
   discard SDL_GetRenderDrawColorFloat(artist.renderer, result.r, result.g, result.b, result.a)
 
+var 
+  canvasWidthL = 0 
+  canvasHeightL = 0
+  cameraX = 0.0
+  cameraY = 0.0
+
+proc canvasWidth* (artist: Artist): int =
+  result = canvasWidthL
+proc canvasHeight* (artist: Artist): int =
+  result = canvasHeightL
+
 proc setCanvas* (artist: Artist, canvas: var Canvas) =
   let (ww, wh) = artist.windowSize()
   if not SDL_SetRenderTarget(artist.renderer, canvas.texture):
@@ -118,6 +130,10 @@ proc setCanvas* (artist: Artist, canvas: var Canvas) =
   canvas.shouldRender = true
   canvas.windowWidth = ww
   canvas.windowHeight = wh
+  canvasWidthL = canvas.width
+  canvasHeightL = canvas.height
+  cameraX = canvas.camera.x
+  cameraY = canvas.camera.y
   SDL_RenderClear(artist.renderer)
 
 proc canvasScale* (canvas: Canvas): tuple[x, y: float] =
@@ -139,7 +155,7 @@ proc endRender(artist: var Artist) =
   for canvas in artist.canvases.mitems:
     canvas.shouldRender = false
 
-proc rect* (artist: Artist, x, y, w, h: SomeNumber, color = White, filled = false)
+proc rect* (artist: Artist, x, y, w, h: float, color = White, filled = false)
 
 proc render* (artist: var Artist) =
   let window = SDL_GetRenderWindow(artist.renderer)
@@ -176,7 +192,11 @@ proc render* (artist: var Artist) =
     if artist.drawDebugCanvasBorders:
       artist.rect(x, y, cw, ch)
 
-proc rect* (artist: Artist, x, y, w, h: SomeNumber, color = White, filled = false) =
+proc transform(artist: Artist, x, y: float): tuple[x, y: float] =
+  result = (x - cameraX, y - cameraY)
+
+proc rect* (artist: Artist, x, y, w, h: float, color = White, filled = false) =
+  let (x, y) = artist.transform(x, y)
   artist.color = color
   if filled:
     SDL_RenderFillRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
@@ -184,19 +204,23 @@ proc rect* (artist: Artist, x, y, w, h: SomeNumber, color = White, filled = fals
     SDL_RenderRect(artist.renderer, SDL_FRect(x: x.cfloat, y: y.cfloat, w: w.cfloat, h: h.cfloat))
 
 proc rect* (artist: Artist, r: Rect, color = White, filled = false) =
-  artist.rect(r.x, r.y, r.w, r.h, color, filled)
+  let (x, y) = artist.transform(r.x, r.y)
+  artist.rect(x, y, r.w, r.h, color, filled)
 
 proc debugText* (artist: Artist, text: string, x, y: SomeNumber, color = White) =
+  let (x, y) = artist.transform(x, y)
   artist.color = color
   discard SDL_RenderDebugText(artist.renderer, x.cfloat, y.cfloat, text.cstring)
 
 proc line* (artist: Artist, x1, y1, x2, y2: SomeNumber, color = White) =
+  let (x1, y1) = artist.transform(x1, y1)
+  let (x2, y2) = artist.transform(x2, y2)
   artist.color = color
   SDL_RenderLine(artist.renderer, x1.cfloat, y1.cfloat, x2.cfloat, y2.cfloat)
 
 proc image* (artist: Artist, dest: Rect, texture: Texture, region = none(Rect), color = White) =
   artist.color = color
-  let (x, y) = (dest.x, dest.y)
+  let (x, y) = artist.transform(dest.x, dest.y)
   let r = region.get(rect(0.0, 0.0, texture.width.cfloat, texture.height.cfloat))
   var 
     s = SDL_FRect(x: x, y: y, w: dest.w, h: dest.h)
