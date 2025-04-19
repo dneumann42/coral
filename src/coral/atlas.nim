@@ -1,5 +1,5 @@
 import sdl3, prelude
-import std / [ os, strutils, sugar, algorithm, sequtils ]
+import std / [ os, strutils, sugar, algorithm, sequtils, json ]
 
 import stb_image/read as stbi
 import stb_image/write as stbw
@@ -21,8 +21,13 @@ type
 
   TextureAtlas* = object
     outFile*, imageDir*: string
-    texture: Texture
     images: seq[TextureAtlasImage]
+
+proc getImage* (atlas: TextureAtlas, name: string): Option[TextureAtlasImage] =
+  result = none(TextureAtlasImage)
+  for img in atlas.images:
+    if img.name == name:
+      return some(img)
 
 proc `=copy`* (dest: var Texture; source: Texture) {.error.}
 proc `=dup`* (source: Texture): Texture {.error.}
@@ -70,27 +75,43 @@ proc loadTexture* (renderer: SDL_Renderer, path: string, scaleMode: ScaleMode = 
 
   result = Texture(p: sdlTexture)
 
+proc write* (atlas: TextureAtlas, path: string) =
+  let js = %* atlas
+  writeFile(path, js.pretty)
+
+proc read* (T: type TextureAtlas, path: string): TextureAtlas =
+  let contents = readFile(path)
+  result = contents.parseJson.to(TextureAtlas)
+
 proc generateTextureAtlas* (imageDir, outPath: string): TextureAtlas =
-  var surfaces = newSeq[(int, int, ptr SDL_Surface)]()
+  result = TextureAtlas(
+    imageDir: imageDir,
+    outFile: outPath
+  )
+
+  var surfaces = newSeq[(int, int, string, ptr SDL_Surface)]()
 
   for (kind, path) in walkDir(imageDir):
     if kind == pcFile:
       if not path.endsWith(".png"):
         continue
       var width, height, channels: int
-      var data: seq[uint8]
+      var data: seq[byte]
       data = stbi.load(path, width, height, channels, stbi.Default)
-      
-      surfaces.add(
-        (width, height, SDL_CreateSurfaceFrom(
-          width.cint, height.cint,
-          SDL_PIXELFORMAT_RGBA32,
-          data.addr.pointer,
-          4
-        ))
-      )
 
-  surfaces.sort((a, b) => (a[0] + a[1]).cmp(b[0] + b[1]))
+      var surface = SDL_CreateSurface(width.cint, height.cint, SDL_PIXELFORMAT_RGBA32)
+
+      for x in 0 ..< width:
+        for y in 0 ..< height:
+          let r = data[(x + y * width) * 4 + 0].uint8
+          let g = data[(x + y * width) * 4 + 1].uint8
+          let b = data[(x + y * width) * 4 + 2].uint8
+          let a = data[(x + y * width) * 4 + 3].uint8
+          discard SDL_WriteSurfacePixel(surface, x.cint, y.cint, r, g, b, a)
+      
+      surfaces.add((width, height, path, surface))
+
+  surfaces.sort((a, b) => (b[0] + b[1]).cmp(a[0] + a[1]))
 
   var 
     finalSurface = SDL_CreateSurface(512, 512, SDL_PIXELFORMAT_RGBA32)
@@ -98,7 +119,7 @@ proc generateTextureAtlas* (imageDir, outPath: string): TextureAtlas =
     cursorY = 0
     maxHeight = 0
 
-  for (width, height, surface) in surfaces:
+  for (width, height, path, surface) in surfaces:
     if cursorX + width > 512:
       cursorX = 0
       cursorY += maxHeight
@@ -108,21 +129,29 @@ proc generateTextureAtlas* (imageDir, outPath: string): TextureAtlas =
     var 
       target = SDL_Rect(x: 0, y: 0, w: width.cint, h: height.cint)
       dst = SDL_Rect(x: cursorX.cint, y: cursorY.cint, w: width.cint, h: height.cint)
+
+    result.images.add(TextureAtlasImage(
+      name: path.extractFilename().replace(".png", ""), 
+      x: cursorX,
+      y: cursorY,
+      w: width,
+      h: height
+    ))
+
     discard SDL_BlitSurface(
       surface, 
       target.addr,
       finalSurface,
       dst.addr,
     )
-
     cursorX += width
 
-  const seq: openArray[uint8] = toOpenArray(finalSurface.pixels, 0, 512 * 512 * 4)
-
-  stbw.writePNG(
+  let pixels = finalSurface.pixels
+  let byteArray = cast[ptr UncheckedArray[byte]](pixels)
+  discard stbw.writePNG(
     outPath, 
-    512 * 512, 
-    stbw.Y, 
-    seq, 
-    4
+    512, 
+    512, 
+    4,
+    toOpenArray(byteArray, 0, 512 * 512 * 4), 
   )

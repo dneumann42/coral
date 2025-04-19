@@ -29,6 +29,12 @@ proc loadTexture* (self: Resources, id: string, path: string) =
   self.add(id, self.renderer.loadTexture(path))
   info("Loading '" & id & "' at " & path)
 
+proc loadTextureAtlas* (self: Resources, id: string, path: string) =
+  let atlas = TextureAtlas.read(path)
+  self.add(id, atlas)
+  self.loadTexture(id & "_texture", atlas.outFile)
+  info("Loading '" & id & "' at " & path)
+
 when isMainModule:
   import unittest
 
