@@ -27,6 +27,8 @@ type
     loadScenes: seq[string]
     messages: seq[AbstractMessage]
 
+    paused: bool
+
     plugins*: Plugins
     artist*: Artist
     resources*: Resources
@@ -71,6 +73,17 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
     artist: Artist.init(renderer),
     resources: Resources.init(renderer)
   ))
+
+proc paused* (app: Application): bool = app.paused
+proc pause* (app: var Application) =
+  app.paused = true
+proc unpause* (app: var Application) =
+  app.paused = false
+proc togglePause* (app: var Application) =
+  if app.paused:
+    app.unpause()
+  else:
+    app.pause()
 
 proc push* (app: var Application, sceneId: string): var Application {.discardable.} =
   app.sceneStack.add(sceneId)
@@ -167,7 +180,9 @@ proc update* (app: var Application) {.raises: [Exception].} =
         continue
       plugin.onMessage(m)
 
-    plugin.update(app.clock)
+    plugin.updateAlways(app.clock)
+    if not app.paused:
+      plugin.update(app.clock)
     for cmd in plugin.cmds:
       commands.add(cmd)
     plugin.reset()
