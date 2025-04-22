@@ -22,6 +22,8 @@ type
 
     renderer: SDL_Renderer
     window: SDL_Window
+    device: SDL_GPUDevice
+
     running: bool = true
     sceneStack: seq[string]
     loadScenes: seq[string]
@@ -59,6 +61,16 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
     return Err($SDL_GetError())
 
   discard SDL_SetRenderVSync(renderer, -1);
+
+  let device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV.SDL_GPUShaderFormat, true, nil)
+  if device.isNil:
+    return Err($SDL_GetError())
+  if not SDL_ClaimWindowForGPUDevice(
+    device,
+    window
+  ):
+    return Err($SDL_GetError())
+
   var plugins = Plugins()
 
   result = Ok(T(
@@ -70,7 +82,7 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
     window: window,
     plugins: plugins,
     sceneStack: @[],
-    artist: Artist.init(renderer),
+    artist: Artist.init(renderer, device),
     resources: Resources.init(renderer)
   ))
 

@@ -9,6 +9,9 @@ type
 
   Artist* = object
     renderer: SDL_Renderer
+    device: SDL_GPUDevice
+    gpuPipeline: SDL_GPUGraphicsPipeline
+
     canvases: seq[Canvas]
     camera*: Camera
     cursors: Table[SDL_SystemCursor, SDL_Cursor]
@@ -56,10 +59,18 @@ proc windowSize(artist: Artist): (int, int) =
   discard SDL_GetWindowSize(window, w, h)
   result = (w, h)
 
-proc init* (T: type Artist, renderer: SDL_Renderer): T =
+proc init* (T: type Artist, renderer: SDL_Renderer, device: SDL_GPUDevice): T =
+  let pipelineInfo = SDL_GPUGraphicsPipelineCreateInfo(
+
+  )
   result = T(
     renderer: renderer,
-    cursors: initTable[SDL_SystemCursor, SDL_Cursor]()
+    device: device,
+    cursors: initTable[SDL_SystemCursor, SDL_Cursor](),
+    gpuPipeline: SDL_CreateGPUGraphicsPipeline(
+      device,
+      addr pipelineInfo
+    )
   )
   for cursor in low(SDL_SystemCursor) .. high(SDL_SystemCursor):
     var systemCursor = SDL_CreateSystemCursor(cursor)
