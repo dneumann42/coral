@@ -3,7 +3,7 @@ import coral
 type
   DrawTest = ref object of Plugin
 
-method draw(self: DrawTest, artist: Artist) =
+method draw(self: DrawTest) =
   echo "HERE?"
 
 when isMainModule:

@@ -1,7 +1,7 @@
 import std / [ typetraits, algorithm, sugar ]
 
 from clock import Clock
-from drawing import Artist, Canvas
+from drawing import Canvas
 
 import messages
 import appcommands
@@ -17,8 +17,8 @@ method load* (self: Plugin): void {.base.} = discard
 method unload* (self: Plugin): void {.base.} = discard
 method update* (self: Plugin, clock: Clock): void {.base.} = discard
 method updateAlways* (self: Plugin, clock: Clock): void {.base.} = discard
-method preRender* (self: Plugin, artist: var Artist): void {.base.} = discard
-method render* (self: Plugin, artist: Artist): void {.base.} = discard
+method preRender* (self: Plugin): void {.base.} = discard
+method render* (self: Plugin): void {.base.} = discard
 method isScene* (self: Plugin): bool {.base.} = false
 method priority* (self: Plugin): int {.base.} = 0
 method onMessage* (self: Plugin, msg: AbstractMessage): void {.base.} =

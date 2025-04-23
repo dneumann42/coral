@@ -1,9 +1,9 @@
-import std / [ options, sequtils, logging, macros, algorithm, sugar ]
+import std / [ options, sequtils, logging, macros, sugar ]
 
 import sdl3
 
-import prelude, plugins, drawing, actions, resources, appcommands, clock
-export prelude, plugins, drawing, actions, resources, clock
+import prelude, plugins, drawing, actions, resources, appcommands, clock, renderer
+export prelude, plugins, drawing, actions, resources, clock, renderer
 
 type
   ApplicationConfig* = object
@@ -19,21 +19,14 @@ type
 
   Application* = object
     meta*: ApplicationMeta
-
-    renderer: SDL_Renderer
-    window: SDL_Window
-    device: SDL_GPUDevice
-
+    sdlWindow: SDL_Window
+    render: Renderer
     running: bool = true
     sceneStack: seq[string]
     loadScenes: seq[string]
     messages: seq[AbstractMessage]
-
     paused: bool
-
     plugins*: Plugins
-    artist*: Artist
-    resources*: Resources
 
     now: uint64
     last: uint64
@@ -56,20 +49,7 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
   if window.isNil:
     return Err($SDL_GetError())
 
-  let renderer = SDL_CreateRenderer(window, nil)
-  if renderer.isNil:
-    return Err($SDL_GetError())
-
-  discard SDL_SetRenderVSync(renderer, -1);
-
-  let device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_SPIRV.SDL_GPUShaderFormat, true, nil)
-  if device.isNil:
-    return Err($SDL_GetError())
-  if not SDL_ClaimWindowForGPUDevice(
-    device,
-    window
-  ):
-    return Err($SDL_GetError())
+  let render = ?Renderer.init(window)
 
   var plugins = Plugins()
 
@@ -78,12 +58,10 @@ proc init* (T: type Application, config = ApplicationConfig.default()): auto {.R
       organization: config.organization,
       name: config.name
     ),
-    renderer: renderer,
-    window: window,
+    sdlWindow: window,
+    render: render,
     plugins: plugins,
     sceneStack: @[],
-    artist: Artist.init(renderer, device),
-    resources: Resources.init(renderer)
   ))
 
 proc paused* (app: Application): bool = app.paused
@@ -213,19 +191,20 @@ proc update* (app: var Application) {.raises: [Exception].} =
   app.messages.keepIf((m) => not m.handled)
 
 proc beginFrame* (app: Application) =
-  SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
-  SDL_RenderClear(app.renderer)
+  # SDL_SetRenderDrawColorFloat(app.renderer, 0.0, 0.0, 0.0, 1.0)
+  # SDL_RenderClear(app.renderer)
+  discard
 
 proc endFrame* (app: var Application) =
-  app.artist.render()
-  SDL_RenderPresent(app.renderer)
+  # SDL_RenderPresent(app.renderer)
+  discard
 
 proc render* (app: var Application) {.raises: [Exception].} =
   app.beginFrame()
   for plugin in app.plugins.plugins:
     if plugin.isScene and plugin.id != app.currentScene():
       continue
-    plugin.render(app.artist)
+    plugin.render()
   app.endFrame()
 
 proc run* (app: var Application) {.raises: [Exception].} =
@@ -237,6 +216,6 @@ proc run* (app: var Application) {.raises: [Exception].} =
     for plugin in app.plugins.plugins:
       if plugin.isScene and plugin.id != app.currentScene():
         continue
-      plugin.preRender(app.artist)
+      plugin.preRender()
 
     app.render()

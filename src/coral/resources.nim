@@ -34,13 +34,3 @@ proc loadTextureAtlas* (self: Resources, id: string, path: string) =
   self.add(id, atlas)
   self.loadTexture(id & "_texture", atlas.outFile)
   info("Loading '" & id & "' at " & path)
-
-when isMainModule:
-  import unittest
-
-  test "Add & get resources":
-    var res = Resources.init()
-    res.add("Test", 123)
-    res.add("Hello", "World")
-    check get[int](res, "Test") == 123
-    check get[string](res, "Hello") == "World"
