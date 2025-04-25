@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std / [ macros, options, logging ]
+import std / [ macros, options, logging, streams, sequtils ]
 import results
 export results, logging, options
 
@@ -31,3 +31,10 @@ template withIt* [T] (o: Option[T], blk: untyped): auto =
 
 template raiseError* (s: string): auto =
   raise CatchableError.newException(s)
+
+proc readBinaryFile* (path: string): seq[byte] {.raises: [CatchableError].} =
+  var stream = newFileStream(path, fmRead)
+  if stream.isNil:
+    raiseError("File not found: " & path)
+  result = cast[seq[byte]](stream.readAll().toSeq())
+  stream.close()

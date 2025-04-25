@@ -1,6 +1,7 @@
-#version 450
-layout (location = 0) in vec2 outPos;
-layout (location = 0) out vec4 result;
+#version 460
+
+layout(location=0) out vec4 color;
+
 void main() {
-  result = vec4(outPos, 0.0, 1.0);
+  color = vec4(1, 0.5, 0, 1);
 }
